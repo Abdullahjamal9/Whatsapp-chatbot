@@ -1,0 +1,81 @@
+{
+  "businessName": "PTIS Chatbot",
+  "displayName": "PTIS Chatbot Support",
+  "phone": "+92 329 2201880",
+  "email": "info@premiertubular.com",
+  "headOfficeAddress": "E-69, Block # 6 P.E.C.H., Imam Ahmed Road, Karachi, Pakistan",
+  "regionalOffices": [
+    {
+      "country": "Pakistan",
+      "label": "Head Office",
+      "phone": "+92 21 34533739",
+      "city": "Karachi",
+      "email": "info@premiertubular.com",
+      "address": "E-69, Block # 6 P.E.C.H., Imam Ahmed Road, Karachi, Pakistan",
+      "dialCodes": [
+        "92"
+      ]
+    },
+    {
+      "country": "Pakistan",
+      "label": "Sub-Branch",
+      "phone": "+92 51 2302572",
+      "city": "Islamabad",
+      "email": "info@premiertubular.com",
+      "address": "House no. 504 street no. 47, G-10/4, Islamabad, Pakistan",
+      "dialCodes": [
+        "92"
+      ]
+    },
+    {
+      "country": "UAE",
+      "label": "Sub-Branch",
+      "phone": "+971 50 5619087",
+      "city": "Dubai",
+      "email": "info@premiertubular.com",
+      "address": "RAK Free Zone Ras Al Khaimah, Dubai, UAE",
+      "dialCodes": [
+        "971"
+      ]
+    },
+    {
+      "country": "Oman",
+      "label": "Regional Office",
+      "phone": "+968 97100150",
+      "city": "",
+      "email": "info@premietubular.com",
+      "address": "National Oilfied Supply Company LLC. (NOSCO), Ghala Industrial Area, Muscat, Sultanate Of Oman",
+      "dialCodes": [
+        "968"
+      ]
+    },
+    {
+      "country": "Kuwait",
+      "label": "Regional Office",
+      "phone": "+965 67047599",
+      "city": "",
+      "email": "info@premiertubular.com",
+      "address": "United Oil Projects, Jacob George Paret, Business Development Manager",
+      "dialCodes": [
+        "965"
+      ]
+    },
+    {
+      "country": "UAE",
+      "label": "Regional Office",
+      "phone": "+971-2-6223200",
+      "city": "Abu Dhabi",
+      "email": "info@premiertubular.com",
+      "address": "PO Box :3994, Corniche Road, Abu Dhabi, UAE",
+      "dialCodes": [
+        "971"
+      ]
+    }
+  ],
+  "timezone": "GMT",
+  "language": "en",
+  "theme": "auto",
+  "accentColor": "#25d366",
+  "compactMode": false,
+  "updatedAt": "2026-05-04T08:52:01.231Z"
+}

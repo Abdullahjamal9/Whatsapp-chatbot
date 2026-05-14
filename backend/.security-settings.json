@@ -1,0 +1,9 @@
+{
+  "sessionTimeoutMinutes": "30",
+  "ipWhitelistEnabled": true,
+  "ipWhitelistEntries": [],
+  "loginNotifications": false,
+  "dataRetentionDays": "180",
+  "twoFactorEnabled": false,
+  "updatedAt": "2026-03-27T05:35:46.644Z"
+}

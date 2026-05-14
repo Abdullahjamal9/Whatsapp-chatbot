@@ -1,0 +1,2399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PTIS Chatbot - WhatsApp Bot Dashboard</title>
+  <link rel="icon" type="image/jpeg" href="assets/logo.jpeg">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+  <!-- Sidebar Navigation -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">
+        <i class="fab fa-whatsapp"></i>
+        <span>PTIS Chatbot</span>
+      </div>
+      <p class="tagline">Bot Status Updated</p>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a href="#" class="nav-item active" data-page="dashboard">
+        <i class="fas fa-th-large"></i>
+        <span>Dashboard</span>
+      </a>
+      <a href="#" class="nav-item" data-page="messages">
+        <i class="fas fa-comments"></i>
+        <span>Messages</span>
+        <span class="badge" id="messagesBadge">0</span>
+      </a>
+      <a href="#" class="nav-item" data-page="sentiment">
+        <i class="fas fa-chart-line"></i>
+        <span>Sentiment</span>
+      </a>
+      <a href="#" class="nav-item" data-page="tasks">
+        <i class="fas fa-tasks"></i>
+        <span>Tasks</span>
+        <span class="badge" id="tasksBadge">0</span>
+      </a>
+      <a href="#" class="nav-item" data-page="meetings">
+        <i class="fas fa-calendar-check"></i>
+        <span>Meetings</span>
+        <span class="badge" id="meetingsBadge">0</span>
+      </a>
+      <a href="#" class="nav-item" data-page="database">
+        <i class="fas fa-database"></i>
+        <span>Database</span>
+      </a>
+      <a href="#" class="nav-item" data-page="profiles">
+        <i class="fas fa-address-card"></i>
+        <span>Customer Profiles</span>
+      </a>
+      <a href="#" class="nav-item" data-page="settings">
+        <i class="fas fa-cog"></i>
+        <span>Settings</span>
+      </a>
+    </nav>
+
+    <div class="bot-status">
+      <i class="fas fa-robot"></i>
+      <div>
+        <p class="status-label">Bot Status</p>
+        <p class="status-value" id="botMessages">0 messages today</p>
+      </div>
+    </div>
+
+    <div class="sidebar-logout">
+      <button class="logout-btn" onclick="logoutUser()">
+        <i class="fas fa-right-from-bracket"></i>
+        <span>Logout</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="main-content">
+    <header class="top-header">
+      <div class="header-left">
+        <h2 class="header-title" id="pageTitle">Dashboard</h2>
+        <p class="header-subtitle" id="pageSubtitle">Real-time WhatsApp bot analytics</p>
+      </div>
+      <div class="header-actions">
+        <button class="btn-simulator" id="simulatorBtn" title="Test Simulator">
+          <i class="fas fa-play"></i>
+          <span>Simulator</span>
+        </button>
+        <button class="btn-icon" title="Fullscreen" onclick="toggleFullscreen()"><i class="fas fa-expand" id="fullscreenIcon"></i></button>
+
+        <!-- Notification Bell -->
+        <div class="notif-wrapper" id="notifWrapper">
+          <button class="btn-icon notif-btn" id="notifBtn" onclick="toggleNotifPanel()" title="Notifications">
+            <i class="fas fa-bell"></i>
+            <span class="notif-badge" id="notifBadge" style="display:none;">0</span>
+          </button>
+          <div class="notif-panel" id="notifPanel" style="display:none;">
+            <div class="notif-header">
+              <span class="notif-title"><i class="fas fa-bell"></i> Notifications</span>
+              <div class="notif-header-actions">
+                <button id="notifMarkAllBtn" onclick="markAllNotifRead()" title="Mark all read"><i class="fas fa-check-double"></i></button>
+                <button onclick="clearAllNotif()" title="Clear all"><i class="fas fa-trash"></i></button>
+              </div>
+            </div>
+            <div class="notif-list" id="notifList">
+              <div class="notif-empty"><i class="fas fa-bell-slash"></i><p>No notifications yet</p></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Dashboard Content -->
+    <div class="dashboard-content" id="dashboardPage">
+      <!-- Statistics Cards -->
+      <div class="cards-grid">
+        <div class="dashboard-card green">
+          <div class="card-header">
+            <i class="fas fa-comments"></i>
+            <h3>Total Messages</h3>
+          </div>
+          <div class="card-body">
+            <div class="card-number" id="totalMessages">0</div>
+            <div class="card-subtitle" id="messagesChange">
+              +0%
+            </div>
+          </div>
+        </div>
+
+        <div class="dashboard-card yellow">
+          <div class="card-header">
+            <i class="fas fa-tasks"></i>
+            <h3>Total Tasks</h3>
+          </div>
+          <div class="card-body">
+            <div class="card-number" id="totalTasks">0</div>
+            <div class="card-subtitle" id="tasksChange">
+              +0%
+            </div>
+          </div>
+        </div>
+
+        <div class="dashboard-card blue">
+          <div class="card-header">
+            <i class="fas fa-comment-dots"></i>
+            <h3>Conversations</h3>
+          </div>
+          <div class="card-body">
+            <div class="card-number" id="totalConversations">0</div>
+            <div class="card-subtitle" id="conversationsChange">
+              0 active
+            </div>
+          </div>
+        </div>
+
+        <div class="dashboard-card red">
+          <div class="card-header">
+            <i class="fas fa-smile"></i>
+            <h3>Positive Sentiment</h3>
+          </div>
+          <div class="card-body">
+            <div class="card-number" id="positivePercent">0%</div>
+            <div class="card-subtitle">
+              Overall sentiment
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts Section -->
+      <div class="charts-section">
+        <div class="chart-card">
+          <div class="chart-header">
+            <h3><i class="fas fa-chart-area"></i> Sentiment Timeline</h3>
+            <select id="timelineFilter" class="filter-select">
+              <option value="all">All time</option>
+              <option value="7" selected>Last 7 days</option>
+              <option value="30">Last 30 days</option>
+              <option value="90">Last 90 days</option>
+            </select>
+          </div>
+          <canvas id="sentimentChart"></canvas>
+        </div>
+
+        <div class="chart-card small">
+          <div class="chart-header">
+            <h3><i class="fas fa-comments"></i> Message Volume</h3>
+          </div>
+          <div class="volume-display">
+            <div class="volume-number" id="messageVolume">0</div>
+            <div class="volume-label">Messages today</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tasks and Messages Section -->
+      <div class="content-section">
+        <div class="section-card">
+          <div class="section-header">
+            <h3><i class="fas fa-tasks"></i> Recent Tasks</h3>
+            <div class="filter-buttons">
+              <button class="filter-btn active" data-status="all">All</button>
+              <button class="filter-btn" data-status="pending">Pending</button>
+              <button class="filter-btn" data-status="completed">Completed</button>
+            </div>
+          </div>
+          <div id="tasksList" class="tasks-list">
+            <p class="loading">Loading tasks...</p>
+          </div>
+        </div>
+
+        <div class="section-card">
+          <div class="section-header">
+            <h3><i class="fas fa-comments"></i> Recent Messages</h3>
+            <button class="btn-view-all" onclick="navigateToPage('messages')">View All</button>
+          </div>
+          <div id="messagesList" class="messages-list">
+            <p class="loading">Loading messages...</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Customer Profiles Section -->
+      <div class="section-card customer-profiles-card">
+        <div class="section-header">
+          <h3><i class="fas fa-address-card"></i> Customer Profiles</h3>
+        </div>
+        <div class="responsive-table">
+          <table class="data-table profiles-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Designation</th>
+                <th>Phone</th>
+                <th>Email</th>
+                <th>Updated</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+              <tbody id="dashboardProfilesBody">
+                <tr><td colspan="6" style="text-align:center;color:var(--text-secondary);padding:14px;">Loading profiles...</td></tr>
+              </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Messages Page -->
+    <div class="dashboard-content" id="messagesPage" style="display: none;">
+      <!-- Stats Bar -->
+      <div class="stats-bar">
+        <div class="stat-box">
+          <div class="stat-box-icon green">
+            <i class="fas fa-comments"></i>
+          </div>
+          <div class="stat-box-content">
+            <h4 id="totalMessagesCount">0</h4>
+            <p>Total Messages</p>
+          </div>
+        </div>
+
+        <div class="stat-box">
+          <div class="stat-box-icon blue">
+            <i class="fas fa-user-friends"></i>
+          </div>
+          <div class="stat-box-content">
+            <h4 id="uniqueContactsCount">0</h4>
+            <p>Unique Contacts</p>
+          </div>
+        </div>
+
+        <div class="stat-box">
+          <div class="stat-box-icon yellow">
+            <i class="fas fa-clock"></i>
+          </div>
+          <div class="stat-box-content">
+            <h4 id="todayMessagesCount">0</h4>
+            <p>Today's Messages</p>
+          </div>
+        </div>
+
+        <div class="stat-box">
+          <div class="stat-box-icon green">
+            <i class="fas fa-smile"></i>
+          </div>
+          <div class="stat-box-content">
+            <h4 id="avgSentiment">0%</h4>
+            <p>Avg Sentiment</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filters Section -->
+      <div class="filters-section">
+        <div class="filters-row">
+          <div class="search-box">
+            <i class="fas fa-search"></i>
+            <input type="text" placeholder="Search messages, contacts, or phone numbers..." id="messageSearch">
+          </div>
+          
+          <select class="filter-dropdown" id="sentimentFilter">
+            <option value="all">All Sentiments</option>
+            <option value="positive">Positive</option>
+            <option value="neutral">Neutral</option>
+            <option value="negative">Negative</option>
+          </select>
+
+          <select class="filter-dropdown" id="dateFilter">
+            <option value="all">All Time</option>
+            <option value="today">Today</option>
+            <option value="week">This Week</option>
+            <option value="month">This Month</option>
+          </select>
+
+          <select class="filter-dropdown" id="sortFilter">
+            <option value="newest">Newest First</option>
+            <option value="oldest">Oldest First</option>
+            <option value="sentiment">By Sentiment</option>
+          </select>
+        </div>
+
+        <div class="action-buttons">
+          <button class="btn-action" onclick="exportMessagesCSV()">
+            <i class="fas fa-download"></i>
+            Export CSV
+          </button>
+          <button class="btn-action" id="advFilterBtn" onclick="toggleAdvancedFilters()">
+            <i class="fas fa-filter"></i>
+            Advanced Filters
+          </button>
+          <button class="btn-action" id="clearFiltersBtn" onclick="clearAllFilters()" style="display:none;">
+            <i class="fas fa-times-circle"></i>
+            Clear Filters
+          </button>
+          <button class="btn-action danger" onclick="deleteSelectedMessages()">
+            <i class="fas fa-trash"></i>
+            Delete Selected (<span id="selectedCount">0</span>)
+          </button>
+        </div>
+
+        <!-- Advanced Filter Panel (hidden by default) -->
+        <div class="advanced-filters-panel" id="advancedFiltersPanel" style="display:none; margin-top:12px; padding:16px; background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px;">
+          <div style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;">
+            <div>
+
+              <label style="display:block; font-size:11px; font-weight:600; color:var(--text-secondary); text-transform:uppercase; letter-spacing:1px; margin-bottom:6px;">From Date</label>
+              <input type="date" id="customStartDate" class="filter-dropdown" style="padding:8px 12px; min-width:150px;">
+            </div>
+            <div>
+              <label style="display:block; font-size:11px; font-weight:600; color:var(--text-secondary); text-transform:uppercase; letter-spacing:1px; margin-bottom:6px;">To Date</label>
+              <input type="date" id="customEndDate" class="filter-dropdown" style="padding:8px 12px; min-width:150px;">
+            </div>
+            <button class="btn-action" onclick="applyAdvancedFilters()"><i class="fas fa-check"></i> Apply</button>
+            <button class="btn-action" onclick="resetAdvancedFilters()"><i class="fas fa-times"></i> Reset</button>
+          </div>
+        </div>
+
+        <!-- Select All Bar (shown when messages loaded) -->
+        <div id="selectAllBar" style="display:none; margin-top:10px; padding:8px 12px; background:var(--card-bg); border-radius:8px; display:none; align-items:center; gap:10px;">
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:var(--text-secondary); font-size:13px;">
+            <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this.checked)" style="width:16px;height:16px;cursor:pointer;">
+            Select All
+          </label>
+          <span id="selectionInfo" style="color:var(--text-secondary); font-size:12px;"></span>
+        </div>
+      </div>
+
+      <!-- Messages Container -->
+      <div class="messages-container" id="messagesContainer">
+        <p class="loading">Loading messages...</p>
+      </div>
+
+      <!-- Messages Pagination -->
+      <div class="msg-pagination-wrap" id="msgPaginationWrap" style="display:none;">
+        <div class="msg-pagination-info" id="msgPaginationInfo"></div>
+        <div class="msg-pagination" id="msgPagination"></div>
+      </div>
+    </div>
+
+    <!-- Sentiment Analysis Page -->
+    <div class="page-content" id="sentimentPage" style="display: none;">
+      <div class="dashboard-content">
+
+        <!-- Period Filter -->
+        <div style="display:flex; justify-content:flex-end; margin-bottom:16px;">
+          <select class="filter-dropdown" id="sentimentPeriodFilter" onchange="loadSentimentPage()" style="min-width:160px;">
+            <option value="7">Last 7 Days</option>
+            <option value="30">Last 30 Days</option>
+            <option value="90">Last 3 Months</option>
+            <option value="365">Last Year</option>
+            <option value="9999" selected>All Time</option>
+          </select>
+        </div>
+
+        <!-- Sentiment Overview Cards -->
+        <div class="cards-grid">
+          <div class="dashboard-card green">
+            <div class="card-header"><i class="fas fa-smile"></i><h3>Positive</h3></div>
+            <div class="card-body">
+              <div class="card-number" id="sentPosPercent">0%</div>
+              <div class="card-subtitle"><span id="sentPosCount">0</span> messages &nbsp;|&nbsp; <span id="sentPosChange" style="color:#25D366">—</span></div>
+            </div>
+          </div>
+          <div class="dashboard-card red">
+            <div class="card-header"><i class="fas fa-frown"></i><h3>Negative</h3></div>
+            <div class="card-body">
+              <div class="card-number" id="sentNegPercent">0%</div>
+              <div class="card-subtitle"><span id="sentNegCount">0</span> messages &nbsp;|&nbsp; <span id="sentNegChange" style="color:#f44336">—</span></div>
+            </div>
+          </div>
+          <div class="dashboard-card yellow">
+            <div class="card-header"><i class="fas fa-meh"></i><h3>Neutral</h3></div>
+            <div class="card-body">
+              <div class="card-number" id="sentNeuPercent">0%</div>
+              <div class="card-subtitle"><span id="sentNeuCount">0</span> messages &nbsp;|&nbsp; <span id="sentNeuChange" style="color:#FFC107">—</span></div>
+            </div>
+          </div>
+          <div class="dashboard-card blue">
+            <div class="card-header"><i class="fas fa-chart-line"></i><h3>Avg Score</h3></div>
+            <div class="card-body">
+              <div class="card-number" id="sentAvgScore">0.00</div>
+              <div class="card-subtitle">comparative score</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="sentiment-charts-grid">
+          <div class="chart-card large">
+            <div class="chart-header">
+              <h3><i class="fas fa-chart-area"></i> Sentiment Trend</h3>
+            </div>
+            <canvas id="sentimentTrendChart"></canvas>
+          </div>
+          <div class="chart-card">
+            <div class="chart-header">
+              <h3><i class="fas fa-chart-pie"></i> Distribution</h3>
+            </div>
+            <canvas id="sentimentDistributionChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Breakdown + Keywords -->
+        <div class="sentiment-breakdown-section">
+          <div class="section-card">
+            <div class="section-header">
+              <h3><i class="fas fa-list"></i> Sentiment Breakdown</h3>
+            </div>
+            <div class="sentiment-categories" id="sentimentBreakdown">
+              <p class="loading">Loading...</p>
+            </div>
+          </div>
+
+          <div class="section-card keywords-card">
+            <div class="section-header">
+              <h3><i class="fas fa-tags"></i> Top Keywords</h3>
+            </div>
+            <div class="keywords-grid" id="sentimentKeywords">
+              <p class="loading">Loading...</p>
+            </div>
+          </div>
+        </div>
+
+
+
+      </div>
+    </div>
+
+    <!-- Tasks Page -->
+    <div class="page-content" id="tasksPage" style="display: none;">
+      <div class="dashboard-content">
+        <!-- Task Stats Cards -->
+        <div class="cards-grid">
+          <div class="dashboard-card blue">
+            <div class="card-header"><i class="fas fa-tasks"></i><h3>Total Tasks</h3></div>
+            <div class="card-body">
+              <div class="card-number" id="taskStatTotal">0</div>
+              <div class="card-subtitle"><span id="taskStatCompletionRate">0%</span> completion rate</div>
+            </div>
+          </div>
+          <div class="dashboard-card green">
+            <div class="card-header"><i class="fas fa-check-circle"></i><h3>Completed</h3></div>
+            <div class="card-body">
+              <div class="card-number" id="taskStatCompleted">0</div>
+              <div class="card-subtitle">tasks done</div>
+            </div>
+          </div>
+          <div class="dashboard-card yellow">
+            <div class="card-header"><i class="fas fa-hourglass-half"></i><h3>In Progress</h3></div>
+            <div class="card-body">
+              <div class="card-number" id="taskStatInProgress">0</div>
+              <div class="card-subtitle">currently active</div>
+            </div>
+          </div>
+          <div class="dashboard-card red">
+            <div class="card-header"><i class="fas fa-clock"></i><h3>Pending</h3></div>
+            <div class="card-body">
+              <div class="card-number" id="taskStatPending">0</div>
+              <div class="card-subtitle">waiting to start</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tasks Control Section -->
+        <div class="filters-section">
+          <div class="filters-row">
+            <div class="search-box">
+              <i class="fas fa-search"></i>
+              <input type="text" placeholder="Search tasks, contacts..." id="taskSearch" oninput="debounceTaskSearch()" />
+            </div>
+            <select class="filter-dropdown" id="taskStatusFilter" onchange="applyTaskFilters()">
+              <option value="all">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="in-progress">In Progress</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+            <select class="filter-dropdown" id="taskTypeFilter" onchange="applyTaskFilters()">
+              <option value="all">All Types</option>
+              <option value="task">Tasks</option>
+              <option value="request">Requests</option>
+            </select>
+            <select class="filter-dropdown" id="taskPriorityFilter" onchange="applyTaskFilters()">
+              <option value="all">All Priority</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
+          </div>
+          <div class="action-buttons">
+            <button class="btn-action" onclick="openNewTaskModal()">
+              <i class="fas fa-plus"></i> New Task
+            </button>
+            <button class="btn-action" onclick="exportTasksCSV()">
+              <i class="fas fa-download"></i> Export CSV
+            </button>
+            <button class="btn-action" id="btnClearTaskFilters" onclick="clearTaskFilters()" style="display:none;">
+              <i class="fas fa-times-circle"></i> Clear Filters
+            </button>
+            <button class="btn-action danger" id="btnDeleteSelected" onclick="deleteSelectedTasks()">
+              <i class="fas fa-trash"></i> Delete Selected (<span id="taskSelectedCount">0</span>)
+            </button>
+          </div>
+        </div>
+
+        <!-- Tasks Table -->
+        <div class="tasks-table-container">
+          <table class="tasks-table">
+            <thead>
+              <tr>
+                <th width="40"><input type="checkbox" id="taskSelectAll" onchange="toggleSelectAllTasks(this)"></th>
+                <th width="70">ID</th>
+                <th>Task Description</th>
+                <th width="110">Type</th>
+                <th width="100">Priority</th>
+                <th width="130">Status</th>
+                <th width="150">Contact</th>
+                <th width="110">Created</th>
+                <th width="110">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="tasksTableBody">
+              <tr><td colspan="9" style="text-align:center;padding:40px;color:var(--text-secondary)"><i class="fas fa-spinner fa-spin"></i> Loading tasks...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="msg-pagination-wrap" id="taskPaginationWrap" style="display:none;">
+          <div class="msg-pagination-info" id="taskPaginationInfo"></div>
+          <div class="msg-pagination" id="taskPagination"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Meetings Page -->
+    <div class="page-content" id="meetingsPage" style="display: none;">
+      <div class="dashboard-content">
+        <!-- Meetings Stats Cards -->
+        <div class="cards-grid">
+          <div class="dashboard-card blue">
+            <div class="card-header"><i class="fas fa-calendar-check"></i><h3>Total Bookings</h3></div>
+            <div class="card-body">
+              <div class="card-number" id="meetingStatTotal">0</div>
+              <div class="card-subtitle">within active filters</div>
+            </div>
+          </div>
+          <div class="dashboard-card green">
+            <div class="card-header"><i class="fas fa-clock"></i><h3>Upcoming</h3></div>
+            <div class="card-body">
+              <div class="card-number" id="meetingStatUpcoming">0</div>
+              <div class="card-subtitle">future booked meetings</div>
+            </div>
+          </div>
+          <div class="dashboard-card yellow">
+            <div class="card-header"><i class="fas fa-calendar-day"></i><h3>Today</h3></div>
+            <div class="card-body">
+              <div class="card-number" id="meetingStatToday">0</div>
+              <div class="card-subtitle">meetings scheduled today</div>
+            </div>
+          </div>
+          <div class="dashboard-card red">
+            <div class="card-header"><i class="fas fa-user-friends"></i><h3>Unique Clients</h3></div>
+            <div class="card-body">
+              <div class="card-number" id="meetingStatClients">0</div>
+              <div class="card-subtitle">distinct phone numbers</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Meetings Filters -->
+        <div class="filters-section">
+          <div class="filters-row">
+            <div class="search-box">
+              <i class="fas fa-search"></i>
+              <input type="text" id="meetingSearch" placeholder="Search by client name, phone, topic or meeting ID" oninput="debounceMeetingSearch()" />
+            </div>
+            <select class="filter-dropdown" id="meetingStatusFilter" onchange="applyMeetingFilters()">
+              <option value="all">All Status</option>
+              <option value="booked">Booked</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+            <input type="date" class="filter-dropdown" id="meetingFromDate" onchange="applyMeetingFilters()" title="From date">
+            <input type="date" class="filter-dropdown" id="meetingToDate" onchange="applyMeetingFilters()" title="To date">
+          </div>
+
+          <div class="meeting-slot-check-row">
+            <div class="meeting-slot-field">
+              <label>Quick Slot Availability</label>
+              <input type="datetime-local" id="meetingAvailabilityStart" class="filter-dropdown">
+            </div>
+            <div class="meeting-slot-field duration">
+              <label>Duration (min)</label>
+              <input type="number" id="meetingAvailabilityDuration" class="filter-dropdown" min="15" max="180" step="15" value="30">
+            </div>
+            <div id="meetingAvailabilityResult" class="meeting-availability-result">Select a slot and click check.</div>
+            <div class="meeting-slot-actions">
+              <button class="btn-action" onclick="checkMeetingAvailability()"><i class="fas fa-check-circle"></i> Check Slot</button>
+            </div>
+          </div>
+
+          <div class="action-buttons">
+            <button class="btn-action" onclick="loadMeetingsPage()"><i class="fas fa-sync-alt"></i> Refresh</button>
+            <button class="btn-action" onclick="clearMeetingFilters()"><i class="fas fa-times-circle"></i> Clear Filters</button>
+            <button class="btn-action" onclick="exportMeetingsCSV()"><i class="fas fa-download"></i> Export CSV</button>
+          </div>
+        </div>
+
+        <!-- Meetings Table -->
+        <div class="tasks-table-container">
+          <table class="tasks-table meetings-table">
+            <thead>
+              <tr>
+                <th width="70">ID</th>
+                <th width="240">Slot</th>
+                <th width="100">Duration</th>
+                <th width="170">Client</th>
+                <th width="200">Host</th>
+                <th width="110">Status</th>
+                <th>Topic</th>
+                <th width="130">Meeting Link</th>
+                <th width="150">Meeting ID</th>
+                <th width="130">Created</th>
+                <th width="130">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="meetingsTableBody">
+              <tr><td colspan="11" style="text-align:center;padding:40px;color:var(--text-secondary)"><i class="fas fa-spinner fa-spin"></i> Loading meetings...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Meeting Reschedule Modal -->
+    <div class="modal-overlay" id="meetingRescheduleModal" style="display:none;" onclick="if(event.target===this)closeMeetingRescheduleModal()">
+      <div class="modal-container" style="max-width:520px;">
+        <div class="modal-header">
+          <h3><i class="fas fa-calendar-plus"></i> Reschedule Meeting</h3>
+          <button class="modal-close" onclick="closeMeetingRescheduleModal()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body" style="padding:24px;display:flex;flex-direction:column;gap:16px;">
+          <p id="meetingRescheduleSummary" style="margin:0;color:var(--text-secondary);font-size:13px;line-height:1.6;">Select a new slot for this meeting.</p>
+          <div>
+            <label style="display:block;margin-bottom:6px;color:var(--text-secondary);font-size:13px;">New Date &amp; Time *</label>
+            <input type="datetime-local" id="meetingRescheduleStart" style="width:100%;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;padding:10px 12px;color:var(--text-primary);font-size:14px;">
+          </div>
+          <div>
+            <label style="display:block;margin-bottom:6px;color:var(--text-secondary);font-size:13px;">Duration (minutes) *</label>
+            <input type="number" id="meetingRescheduleDuration" min="15" max="180" step="15" value="30" style="width:100%;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;padding:10px 12px;color:var(--text-primary);font-size:14px;">
+          </div>
+        </div>
+        <div class="modal-footer" style="padding:16px 24px;display:flex;justify-content:flex-end;gap:10px;border-top:1px solid var(--border-color);">
+          <button class="btn-action" style="background:var(--bg-tertiary);" onclick="closeMeetingRescheduleModal()">Cancel</button>
+          <button class="btn-action" id="meetingRescheduleSaveBtn" style="background:linear-gradient(135deg,#25D366,#128C7E);color:#ffffff;" onclick="saveMeetingReschedule()"><i class="fas fa-check"></i> Save Changes</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Meeting Cancel Modal -->
+    <div class="modal-overlay" id="meetingCancelModal" style="display:none;" onclick="if(event.target===this)closeMeetingCancelModal()">
+      <div class="modal-container" style="max-width:520px;">
+        <div class="modal-header">
+          <h3><i class="fas fa-ban"></i> Cancel Meeting</h3>
+          <button class="modal-close" onclick="closeMeetingCancelModal()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body" style="padding:24px;display:flex;flex-direction:column;gap:14px;">
+          <p style="margin:0;color:var(--text-primary);font-size:14px;line-height:1.6;">Are you sure you want to cancel this meeting?</p>
+          <div id="meetingCancelSummary" style="padding:12px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-tertiary);color:var(--text-secondary);font-size:13px;line-height:1.5;">
+            Meeting details will appear here.
+          </div>
+        </div>
+        <div class="modal-footer" style="padding:16px 24px;display:flex;justify-content:flex-end;gap:10px;border-top:1px solid var(--border-color);">
+          <button class="btn-action" style="background:var(--bg-tertiary);" onclick="closeMeetingCancelModal()">Keep Meeting</button>
+          <button class="btn-action danger" id="meetingCancelConfirmBtn" onclick="confirmMeetingCancel()"><i class="fas fa-ban"></i> Confirm Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Meeting Delete Modal -->
+    <div class="modal-overlay" id="meetingDeleteModal" style="display:none;" onclick="if(event.target===this)closeMeetingDeleteModal()">
+      <div class="modal-container" style="max-width:520px;">
+        <div class="modal-header">
+          <h3><i class="fas fa-trash"></i> Delete Meeting</h3>
+          <button class="modal-close" onclick="closeMeetingDeleteModal()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body" style="padding:24px;display:flex;flex-direction:column;gap:14px;">
+          <p style="margin:0;color:var(--text-primary);font-size:14px;line-height:1.6;">Are you sure you want to delete this meeting?</p>
+          <div id="meetingDeleteSummary" style="padding:12px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-tertiary);color:var(--text-secondary);font-size:13px;line-height:1.5;">
+            Meeting details will appear here.
+          </div>
+        </div>
+        <div class="modal-footer" style="padding:16px 24px;display:flex;justify-content:flex-end;gap:10px;border-top:1px solid var(--border-color);">
+          <button class="btn-action" style="background:var(--bg-tertiary);" onclick="closeMeetingDeleteModal()">Keep Meeting</button>
+          <button class="btn-action danger" id="meetingDeleteConfirmBtn" onclick="confirmMeetingDelete()"><i class="fas fa-trash"></i> Confirm Delete</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- New Task Modal -->
+    <div class="modal-overlay" id="newTaskModal" style="display:none;" onclick="if(event.target===this)closeNewTaskModal()">
+      <div class="modal-container" style="max-width:520px;">
+        <div class="modal-header">
+          <h3><i class="fas fa-plus-circle"></i> New Task</h3>
+          <button class="modal-close" onclick="closeNewTaskModal()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body" style="padding:24px;display:flex;flex-direction:column;gap:16px;">
+          <div>
+            <label style="display:block;margin-bottom:6px;color:var(--text-secondary);font-size:13px;">Description *</label>
+            <textarea id="newTaskDesc" rows="3" placeholder="Describe the task..." style="width:100%;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;padding:10px 12px;color:var(--text-primary);font-size:14px;resize:vertical;"></textarea>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <label style="display:block;margin-bottom:6px;color:var(--text-secondary);font-size:13px;">Contact Name</label>
+              <input id="newTaskContact" type="text" placeholder="e.g. John Doe" style="width:100%;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;padding:10px 12px;color:var(--text-primary);font-size:14px;">
+            </div>
+            <div>
+              <label style="display:block;margin-bottom:6px;color:var(--text-secondary);font-size:13px;">Type</label>
+              <select id="newTaskType" style="width:100%;background:#1a1f2e;border:1px solid #2d3748;border-radius:8px;padding:10px 12px;color:#e2e8f0;font-size:14px;">
+                <option value="task" style="background:#1a1f2e;color:#e2e8f0;">Task</option>
+                <option value="request" style="background:#1a1f2e;color:#e2e8f0;">Request</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <label style="display:block;margin-bottom:6px;color:var(--text-secondary);font-size:13px;">Priority</label>
+              <select id="newTaskPriority" style="width:100%;background:#1a1f2e;border:1px solid #2d3748;border-radius:8px;padding:10px 12px;color:#e2e8f0;font-size:14px;">
+                <option value="medium" style="background:#1a1f2e;color:#e2e8f0;">Medium</option>
+                <option value="high" style="background:#1a1f2e;color:#e2e8f0;">High</option>
+                <option value="low" style="background:#1a1f2e;color:#e2e8f0;">Low</option>
+              </select>
+            </div>
+            <div>
+              <label style="display:block;margin-bottom:6px;color:var(--text-secondary);font-size:13px;">Notes (optional)</label>
+              <input id="newTaskNotes" type="text" placeholder="Additional notes..." style="width:100%;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;padding:10px 12px;color:var(--text-primary);font-size:14px;">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer" style="padding:16px 24px;display:flex;justify-content:flex-end;gap:10px;border-top:1px solid var(--border-color);">
+          <button class="btn-action" style="background:var(--bg-tertiary);" onclick="closeNewTaskModal()">Cancel</button>
+          <button class="btn-action" style="background:linear-gradient(135deg,#25D366,#128C7E);color:#ffffff;" onclick="saveNewTask()"><i class="fas fa-check"></i> Create Task</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Change Password Modal -->
+    <div class="modal-overlay" id="changePasswordModal" style="display:none;" onclick="if(event.target===this)closeChangePasswordModal()">
+      <div class="modal-container" style="max-width:520px;">
+        <div class="modal-header">
+          <h3><i class="fas fa-key"></i> Change Password</h3>
+          <button class="modal-close" onclick="closeChangePasswordModal()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body" style="padding:24px;display:flex;flex-direction:column;gap:16px;">
+          <div>
+            <label style="display:block;margin-bottom:6px;color:var(--text-secondary);font-size:13px;">Current Password *</label>
+            <input id="currentPasswordInput" type="password" placeholder="Enter current password" style="width:100%;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;padding:10px 12px;color:var(--text-primary);font-size:14px;">
+          </div>
+          <div>
+            <label style="display:block;margin-bottom:6px;color:var(--text-secondary);font-size:13px;">New Password *</label>
+            <input id="newPasswordInput" type="password" placeholder="Minimum 8 characters" style="width:100%;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;padding:10px 12px;color:var(--text-primary);font-size:14px;">
+          </div>
+          <div>
+            <label style="display:block;margin-bottom:6px;color:var(--text-secondary);font-size:13px;">Confirm New Password *</label>
+            <input id="confirmPasswordInput" type="password" placeholder="Re-enter new password" style="width:100%;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;padding:10px 12px;color:var(--text-primary);font-size:14px;">
+          </div>
+          <p style="margin:0;color:var(--text-secondary);font-size:12px;">Tip: Use at least 8 characters with a mix of letters, numbers, and symbols.</p>
+        </div>
+        <div class="modal-footer" style="padding:16px 24px;display:flex;justify-content:flex-end;gap:10px;border-top:1px solid var(--border-color);">
+          <button class="btn-action" style="background:var(--bg-tertiary);" onclick="closeChangePasswordModal()">Cancel</button>
+          <button class="btn-action" id="savePasswordBtn" style="background:linear-gradient(135deg,#25D366,#128C7E);color:#ffffff;" onclick="saveChangedPassword()"><i class="fas fa-check"></i> Update Password</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Database Page -->
+    <div id="databasePage" style="display: none;">
+      <div class="dashboard-content">
+        <!-- Database Stats Cards -->
+        <div class="cards-grid">
+          <div class="dashboard-card purple">
+            <div class="card-header">
+              <i class="fas fa-database"></i>
+              <h3>Total Records</h3>
+            </div>
+            <div class="card-body">
+              <div class="card-number" id="dbTotalRecords">0</div>
+              <div class="card-subtitle">
+                <span id="dbRecordsChange">+0</span> today
+              </div>
+            </div>
+          </div>
+
+          <div class="dashboard-card blue">
+            <div class="card-header">
+              <i class="fas fa-table"></i>
+              <h3>Tables</h3>
+            </div>
+            <div class="card-body">
+              <div class="card-number">3</div>
+              <div class="card-subtitle">
+                Messages, Tasks, Profiles
+              </div>
+            </div>
+          </div>
+
+          <div class="dashboard-card green">
+            <div class="card-header">
+              <i class="fas fa-hdd"></i>
+              <h3>Database Size</h3>
+            </div>
+            <div class="card-body">
+              <div class="card-number" id="dbSize">-</div>
+              <div class="card-subtitle">
+                Storage used
+              </div>
+            </div>
+          </div>
+
+          <div class="dashboard-card orange last-backup-card">
+            <div class="card-header">
+              <i class="fas fa-sync-alt"></i>
+              <h3>Last Backup</h3>
+            </div>
+            <div class="card-body">
+              <div class="card-number" id="lastBackup">Never</div>
+              <div class="card-subtitle">
+                <span>Auto-backup</span> enabled
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Database Tables Section -->
+        <div class="section-card">
+          <div class="section-header">
+            <h3><i class="fas fa-th-list"></i> Database Tables</h3>
+            <div class="section-actions">
+              <button class="btn-action btn-primary" onclick="refreshDatabase()">
+                <i class="fas fa-sync-alt"></i> Refresh
+              </button>
+              <button class="btn-action" onclick="exportDatabase()">
+                <i class="fas fa-download"></i> Export
+              </button>
+              <button class="btn-action btn-danger" onclick="clearDatabase()">
+                <i class="fas fa-trash"></i> Clear All
+              </button>
+            </div>
+          </div>
+
+          <!-- Tables Grid -->
+          <div class="database-tables-grid">
+            <!-- Messages Table Card -->
+            <div class="db-table-card">
+              <div class="db-table-header">
+                <div class="db-table-icon messages">
+                  <i class="fas fa-comments"></i>
+                </div>
+                <div class="db-table-info">
+                  <h4>Messages</h4>
+                  <p class="db-table-description">All WhatsApp messages received</p>
+                </div>
+              </div>
+              <div class="db-table-stats">
+                <div class="db-stat-item">
+                  <span class="db-stat-label">Total Records</span>
+                  <span class="db-stat-value" id="messagesCount">0</span>
+                </div>
+                <div class="db-stat-item">
+                  <span class="db-stat-label">Storage</span>
+                  <span class="db-stat-value" id="messagesSize">0 KB</span>
+                </div>
+                <div class="db-stat-item">
+                  <span class="db-stat-label">Last Updated</span>
+                  <span class="db-stat-value" id="messagesLastUpdate">-</span>
+                </div>
+              </div>
+              <div class="db-table-actions">
+                <button class="btn-db-action" onclick="viewTable('messages')">
+                  <i class="fas fa-eye"></i> View
+                </button>
+                <button class="btn-db-action" onclick="exportTable('messages')">
+                  <i class="fas fa-download"></i> Export
+                </button>
+                <button class="btn-db-action btn-danger" onclick="clearTable('messages')">
+                  <i class="fas fa-trash"></i> Clear
+                </button>
+              </div>
+            </div>
+
+            <!-- Tasks Table Card -->
+            <div class="db-table-card">
+              <div class="db-table-header">
+                <div class="db-table-icon tasks">
+                  <i class="fas fa-tasks"></i>
+                </div>
+                <div class="db-table-info">
+                  <h4>Tasks</h4>
+                  <p class="db-table-description">Task extraction from messages</p>
+                </div>
+              </div>
+              <div class="db-table-stats">
+                <div class="db-stat-item">
+                  <span class="db-stat-label">Total Records</span>
+                  <span class="db-stat-value" id="tasksCount">0</span>
+                </div>
+                <div class="db-stat-item">
+                  <span class="db-stat-label">Storage</span>
+                  <span class="db-stat-value" id="tasksSize">0 KB</span>
+                </div>
+                <div class="db-stat-item">
+                  <span class="db-stat-label">Last Updated</span>
+                  <span class="db-stat-value" id="tasksLastUpdate">-</span>
+                </div>
+              </div>
+              <div class="db-table-actions">
+                <button class="btn-db-action" onclick="viewTable('tasks')">
+                  <i class="fas fa-eye"></i> View
+                </button>
+                <button class="btn-db-action" onclick="exportTable('tasks')">
+                  <i class="fas fa-download"></i> Export
+                </button>
+                <button class="btn-db-action btn-danger" onclick="clearTable('tasks')">
+                  <i class="fas fa-trash"></i> Clear
+                </button>
+              </div>
+            </div>
+
+            <!-- Customer Profiles Table Card -->
+            <div class="db-table-card">
+              <div class="db-table-header">
+                <div class="db-table-icon profiles">
+                  <i class="fas fa-id-badge"></i>
+                </div>
+                <div class="db-table-info">
+                  <h4>Customer Profiles</h4>
+                  <p class="db-table-description">Collected contacts and details</p>
+                </div>
+              </div>
+              <div class="db-table-stats">
+                <div class="db-stat-item">
+                  <span class="db-stat-label">Total Records</span>
+                  <span class="db-stat-value" id="profilesCount">0</span>
+                </div>
+                <div class="db-stat-item">
+                  <span class="db-stat-label">Storage</span>
+                  <span class="db-stat-value" id="profilesSize">0 KB</span>
+                </div>
+                <div class="db-stat-item">
+                  <span class="db-stat-label">Last Updated</span>
+                  <span class="db-stat-value" id="profilesLastUpdate">-</span>
+                </div>
+              </div>
+              <div class="db-table-actions">
+                <button class="btn-db-action" onclick="viewTable('user_profiles')">
+                  <i class="fas fa-eye"></i> View
+                </button>
+                <button class="btn-db-action" onclick="exportTable('user_profiles')">
+                  <i class="fas fa-download"></i> Export
+                </button>
+                <button class="btn-db-action btn-danger" onclick="clearTable('user_profiles')">
+                  <i class="fas fa-trash"></i> Clear
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Database Operations Section -->
+        <div class="section-card">
+          <div class="section-header">
+            <h3><i class="fas fa-cogs"></i> Database Operations</h3>
+          </div>
+          
+          <div class="db-operations-grid">
+            <!-- Backup & Restore -->
+            <div class="db-operation-card">
+              <div class="db-operation-icon backup">
+                <i class="fas fa-cloud-upload-alt"></i>
+              </div>
+              <h4>Backup Database</h4>
+              <p>Create a full backup of all database tables</p>
+              <button class="btn-db-operation" onclick="backupDatabase()">
+                <i class="fas fa-save"></i> Create Backup
+              </button>
+            </div>
+
+            <div class="db-operation-card">
+              <div class="db-operation-icon restore">
+                <i class="fas fa-cloud-download-alt"></i>
+              </div>
+              <h4>Restore Database</h4>
+              <p>Restore database from a backup file</p>
+              <button class="btn-db-operation" onclick="restoreDatabase()">
+                <i class="fas fa-upload"></i> Restore
+              </button>
+            </div>
+
+            <!-- Import & Export -->
+            <div class="db-operation-card">
+              <div class="db-operation-icon import">
+                <i class="fas fa-file-import"></i>
+              </div>
+              <h4>Import Data</h4>
+              <p>Import data from CSV or JSON files</p>
+              <button class="btn-db-operation" onclick="importData()">
+                <i class="fas fa-file-upload"></i> Import
+              </button>
+            </div>
+
+            <div class="db-operation-card">
+              <div class="db-operation-icon export">
+                <i class="fas fa-file-export"></i>
+              </div>
+              <h4>Export Data</h4>
+              <p>Export all data to CSV or JSON format</p>
+              <button class="btn-db-operation" onclick="exportAllData()">
+                <i class="fas fa-file-download"></i> Export All
+              </button>
+            </div>
+
+            <!-- Optimize & Clean -->
+            <div class="db-operation-card">
+              <div class="db-operation-icon optimize">
+                <i class="fas fa-compress-alt"></i>
+              </div>
+              <h4>Optimize Database</h4>
+              <p>Optimize tables and improve performance</p>
+              <button class="btn-db-operation" onclick="optimizeDatabase()">
+                <i class="fas fa-wrench"></i> Optimize
+              </button>
+            </div>
+
+            <div class="db-operation-card">
+              <div class="db-operation-icon clean">
+                <i class="fas fa-broom"></i>
+              </div>
+              <h4>Clean Old Data</h4>
+              <p>Remove records older than specified date</p>
+              <button class="btn-db-operation" onclick="cleanOldData()">
+                <i class="fas fa-trash-alt"></i> Clean
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Database Connection Info -->
+        <div class="section-card">
+          <div class="section-header">
+            <h3><i class="fas fa-info-circle"></i> Connection Information</h3>
+          </div>
+          
+          <div class="db-connection-info">
+            <div class="db-info-grid">
+              <div class="db-info-item">
+                <span class="db-info-label"><i class="fas fa-server"></i> Database Type</span>
+                <span class="db-info-value">MySQL</span>
+              </div>
+              <div class="db-info-item">
+                <span class="db-info-label"><i class="fas fa-network-wired"></i> Host</span>
+                <span class="db-info-value" id="dbHost">localhost</span>
+              </div>
+              <div class="db-info-item">
+                <span class="db-info-label"><i class="fas fa-database"></i> Database Name</span>
+                <span class="db-info-value" id="dbName">whatsapp_bot</span>
+              </div>
+              <div class="db-info-item">
+                <span class="db-info-label"><i class="fas fa-plug"></i> Status</span>
+                <span class="db-info-value db-status-connected">
+                  <i class="fas fa-check-circle"></i> Connected
+                </span>
+              </div>
+              <div class="db-info-item">
+                <span class="db-info-label"><i class="fas fa-code-branch"></i> Version</span>
+                <span class="db-info-value" id="dbVersion">-</span>
+              </div>
+              <div class="db-info-item">
+                <span class="db-info-label"><i class="fas fa-clock"></i> Uptime</span>
+                <span class="db-info-value" id="dbUptime">-</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Database Activity -->
+        <div class="section-card">
+          <div class="section-header">
+            <h3><i class="fas fa-history"></i> Recent Activity</h3>
+          </div>
+          
+          <div class="db-activity-list" id="dbActivityList">
+            <p class="loading">Loading recent activity...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Customer Profiles Page -->
+    <div id="profilesPage" style="display: none;">
+      <div class="dashboard-content">
+        <!-- Profiles Stats Cards -->
+        <div class="cards-grid">
+          <div class="dashboard-card green">
+            <div class="card-header">
+              <i class="fas fa-user-friends"></i>
+              <h3>Total Profiles</h3>
+            </div>
+            <div class="card-body">
+              <div class="card-number" id="profileTotalCount">0</div>
+              <div class="card-subtitle">Collected contacts</div>
+            </div>
+          </div>
+
+          <div class="dashboard-card blue">
+            <div class="card-header">
+              <i class="fas fa-clock"></i>
+              <h3>Last Updated</h3>
+            </div>
+            <div class="card-body">
+              <div class="card-number" id="profileLastUpdated">—</div>
+              <div class="card-subtitle">Most recent profile</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-card">
+          <div class="section-header">
+            <h3><i class="fas fa-address-card"></i> Customer Profiles</h3>
+          </div>
+          <div class="responsive-table">
+            <table class="data-table profiles-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Designation</th>
+                  <th>Phone</th>
+                  <th>Email</th>
+                  <th>Updated</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="profilesTableBody">
+                <tr><td colspan="6" style="text-align:center;color:var(--text-secondary);padding:14px;">Loading profiles...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Profiles Pagination -->
+        <div class="msg-pagination-wrap" id="profilePaginationWrap" style="display:none;">
+          <div class="msg-pagination-info" id="profilePaginationInfo"></div>
+          <div class="msg-pagination" id="profilePagination"></div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- Settings Page -->
+    <div id="settingsPage" style="display: none;">
+      <div class="dashboard-content">
+        <!-- Settings Navigation Tabs -->
+        <div class="settings-tabs">
+          <button class="settings-tab" data-tab="whatsapp" onclick="switchSettingsTab('whatsapp')">
+            <i class="fab fa-whatsapp"></i> WhatsApp Connection
+          </button>
+          <button class="settings-tab active" data-tab="general" onclick="switchSettingsTab('general')">
+            <i class="fas fa-cog"></i> General
+          </button>
+          <button class="settings-tab" data-tab="bot" onclick="switchSettingsTab('bot')">
+            <i class="fas fa-robot"></i> Bot Configuration
+          </button>
+          <button class="settings-tab" data-tab="notifications" onclick="switchSettingsTab('notifications')">
+            <i class="fas fa-bell"></i> Notifications
+          </button>
+          <button class="settings-tab" data-tab="security" onclick="switchSettingsTab('security')">
+            <i class="fas fa-shield-alt"></i> Security
+          </button>
+          <button class="settings-tab" data-tab="advanced" onclick="switchSettingsTab('advanced')">
+            <i class="fas fa-sliders-h"></i> Advanced
+          </button>
+        </div>
+
+        <!-- WhatsApp Connection Tab -->
+        <div id="whatsappSettings" class="settings-tab-content">
+          <div class="section-card">
+            <div class="section-header">
+              <h3><i class="fab fa-whatsapp" style="color:#25D366"></i> WhatsApp Connection</h3>
+              <p style="color:var(--text-secondary);margin-top:6px;font-size:13px;">Link your WhatsApp account to enable the bot and message sending</p>
+            </div>
+
+            <!-- Status Banner -->
+            <div id="waStatusBanner" style="display:flex;align-items:center;gap:12px;padding:14px 18px;border-radius:10px;margin-bottom:24px;background:var(--bg-secondary);border:1px solid var(--border);">
+              <div id="waStatusDot" style="width:12px;height:12px;border-radius:50%;background:#6b7280;flex-shrink:0"></div>
+              <div>
+                <div id="waStatusText" style="font-weight:600;font-size:14px;">Checking status...</div>
+                <div id="waStatusSub" style="font-size:12px;color:var(--text-secondary);margin-top:2px;">Please wait</div>
+              </div>
+              <button onclick="checkWAStatus()" style="margin-left:auto;padding:6px 14px;background:var(--bg-primary);border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:12px;color:var(--text-primary);">
+                <i class="fas fa-sync-alt"></i> Refresh
+              </button>
+            </div>
+
+            <!-- QR Code Area -->
+            <div id="waQRSection" style="display:none;text-align:center;padding:30px 20px;">
+              <h4 style="margin-bottom:8px;font-size:16px;">Scan QR Code with WhatsApp</h4>
+              <p style="color:var(--text-secondary);font-size:13px;margin-bottom:20px;">
+                Open WhatsApp on your phone → <strong>Settings</strong> → <strong>Linked Devices</strong> → <strong>Link a Device</strong>
+              </p>
+              <div style="display:inline-block;padding:16px;background:#fff;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.15);">
+                <img id="waQRImage" src="" alt="QR Code" style="width:250px;height:250px;display:block;" />
+              </div>
+              <p style="margin-top:16px;font-size:12px;color:var(--text-secondary);">
+                <i class="fas fa-clock"></i> QR code refreshes every 20 seconds
+              </p>
+              <div style="margin-top:16px;">
+                <button onclick="refreshQRCode()" class="wa-action-btn wa-action-btn--green">
+                  <i class="fas fa-qrcode"></i> Generate New QR Code
+                </button>
+              </div>
+            </div>
+
+            <!-- Connected Area -->
+            <div id="waConnectedSection" style="display:none;text-align:center;padding:30px 20px;">
+              <div style="width:80px;height:80px;background:rgba(37,211,102,0.15);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+                <i class="fab fa-whatsapp" style="font-size:40px;color:#25D366;"></i>
+              </div>
+              <h4 style="font-size:18px;margin-bottom:8px;color:#25D366;">WhatsApp Connected!</h4>
+              <p style="color:var(--text-secondary);font-size:14px;">Your bot is active and ready to send/receive messages.</p>
+              <div style="margin-top:20px;display:flex;justify-content:center;">
+                <button id="waDisconnectBtn" onclick="disconnectWhatsApp()" class="wa-action-btn wa-action-btn--red">
+                  <i class="fas fa-link-slash"></i>
+                  <span>Disconnect WhatsApp</span>
+                </button>
+              </div>
+              <p style="margin-top:10px;font-size:12px;color:var(--text-secondary);">Disconnecting will log out this device. A new QR code will be generated automatically.</p>
+            </div>
+
+            <!-- Instructions -->
+            <div id="waInstructionsSection" style="margin-top:24px;padding:16px;background:rgba(99,102,241,0.08);border-radius:10px;border-left:3px solid var(--accent);">
+              <h5 style="margin-bottom:10px;font-size:13px;font-weight:600;"><i class="fas fa-info-circle"></i> How to connect</h5>
+              <ol style="margin:0;padding-left:18px;font-size:13px;color:var(--text-secondary);line-height:1.9;">
+                <!-- <li>Make sure the bot is running: open a terminal and run <code style="background:var(--bg-secondary);padding:2px 6px;border-radius:4px;">npm run bot</code></li> -->
+                <li>Click <strong>Refresh</strong> above — the QR code will appear here</li>
+                <li>Open WhatsApp on your phone</li>
+                <li>Go to <strong>Settings → Linked Devices → Link a Device</strong></li>
+                <li>Scan the QR code shown above</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+
+        <!-- General Settings Tab -->
+        <div id="generalSettings" class="settings-tab-content active">
+          <div class="section-card">
+            <div class="section-header">
+              <h3><i class="fas fa-user-cog"></i> Profile Settings</h3>
+            </div>
+            
+            <div class="settings-form">
+              <div class="settings-row">
+                <div class="settings-label">
+                  <label>Business Name</label>
+                  <p class="settings-description">Your business or organization name</p>
+                </div>
+                <div class="settings-input">
+                  <input type="text" id="generalBusinessName" class="form-input" value="PTIS Chatbot" placeholder="Enter business name">
+                </div>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <label>Display Name</label>
+                  <p class="settings-description">Name shown in WhatsApp conversations</p>
+                </div>
+                <div class="settings-input">
+                  <input type="text" id="generalDisplayName" class="form-input" value="PTIS Chatbot Support" placeholder="Enter display name">
+                </div>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <label>Phone Number</label>
+                  <p class="settings-description">WhatsApp Business phone number</p>
+                </div>
+                <div class="settings-input">
+                  <input type="tel" id="generalPhone" class="form-input" value="+92 300 1234567" placeholder="+1 234 567 8900">
+                </div>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <label>Business Email</label>
+                  <p class="settings-description">Primary contact email address</p>
+                </div>
+                <div class="settings-input">
+                  <input type="email" id="generalEmail" class="form-input" value="support@ptischatbot.com" placeholder="email@example.com">
+                </div>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <label>Head Office Address</label>
+                  <p class="settings-description">Default address when no regional match is found</p>
+                </div>
+                <div class="settings-input">
+                  <textarea id="generalHeadOfficeAddress" class="form-textarea" rows="3" placeholder="e.g. 123 Main Street, City, Country"></textarea>
+                </div>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <label>Timezone</label>
+                  <p class="settings-description">Your local timezone for scheduling</p>
+                </div>
+                <div class="settings-input">
+                  <select id="generalTimezone" class="form-select">
+                    <option value="UTC">UTC (Coordinated Universal Time)</option>
+                    <option value="PST">PST (Pacific Standard Time)</option>
+                    <option value="EST">EST (Eastern Standard Time)</option>
+                    <option value="GMT" selected>GMT+5 (Pakistan Standard Time)</option>
+                    <option value="IST">IST (India Standard Time)</option>
+                  </select>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <div class="section-card">
+            <div class="section-header">
+              <h3><i class="fas fa-palette"></i> Appearance</h3>
+            </div>
+            
+            <div class="settings-form">
+              <div class="settings-row">
+                <div class="settings-label">
+                  <label>Theme</label>
+                  <p class="settings-description">Choose your dashboard theme</p>
+                </div>
+                <div class="settings-input">
+                  <div class="theme-options">
+                    <div class="theme-option active" data-theme="dark">
+                      <div class="theme-preview dark">
+                        <div class="theme-preview-bar"></div>
+                        <div class="theme-preview-content"></div>
+                      </div>
+                      <span>Dark</span>
+                    </div>
+                    <div class="theme-option" data-theme="light">
+                      <div class="theme-preview light">
+                        <div class="theme-preview-bar"></div>
+                        <div class="theme-preview-content"></div>
+                      </div>
+                      <span>Light</span>
+                    </div>
+                    <div class="theme-option" data-theme="auto">
+                      <div class="theme-preview auto">
+                        <div class="theme-preview-bar"></div>
+                        <div class="theme-preview-content"></div>
+                      </div>
+                      <span>Auto</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <label>Accent Color</label>
+                  <p class="settings-description">Primary color for buttons and highlights</p>
+                </div>
+                <div class="settings-input">
+                  <div class="color-picker">
+                    <input type="color" id="accentColor" value="#25D366">
+                    <span class="color-value">#25D366</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <label>Compact Mode</label>
+                  <p class="settings-description">Reduce spacing for more content</p>
+                </div>
+                <div class="settings-input">
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="generalCompactMode">
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section-card">
+            <div class="section-header">
+              <h3><i class="fas fa-map-marker-alt"></i> Regional Offices</h3>
+              <p style="color:var(--text-secondary);margin-top:6px;font-size:13px;">Add country-specific contact details. The bot will share the nearest office address and number when a client asks for contact or address.</p>
+            </div>
+
+            <div class="settings-form" id="regionalOfficesList"></div>
+
+            <div class="settings-actions" style="justify-content:flex-start;align-items:center;gap:12px;">
+              <button class="btn-secondary" type="button" onclick="addRegionalOfficeRow()">
+                <i class="fas fa-plus"></i> Add Office
+              </button>
+              <span class="settings-description">Save with the "Save Changes" button below.</span>
+            </div>
+          </div>
+
+          <div class="settings-actions">
+            <button class="btn-settings-save" onclick="saveSettings('general')">
+              <i class="fas fa-save"></i> Save Changes
+            </button>
+            <button class="btn-settings-cancel" onclick="resetSettings('general')">
+              <i class="fas fa-undo"></i> Reset
+            </button>
+          </div>
+        </div>
+
+        <!-- Bot Configuration Tab -->
+        <div id="botSettings" class="settings-tab-content">
+
+          <!-- ===== WEBSITE AUTO-SYNC ===== -->
+          <div class="section-card" style="border:2px solid #f4b400;">
+            <div class="section-header" style="background:linear-gradient(135deg,#f4b400,#4285f4);color:#fff;border-radius:8px 8px 0 0;margin:-20px -20px 20px -20px;padding:18px 20px;">
+              <h3 style="color:#fff;margin:0;"><i class="fas fa-globe"></i> Website Auto-Sync
+                <span style="background:rgba(255,255,255,0.25);font-size:11px;padding:2px 10px;border-radius:10px;margin-left:8px;">Auto Updates</span>
+              </h3>
+              <p style="color:rgba(255,255,255,0.85);margin:4px 0 0 0;font-size:13px;">Bot will read your website and keep its knowledge updated.</p>
+            </div>
+
+            <div class="settings-form">
+              <div class="settings-row">
+                <div class="settings-label">
+                  <label>Website URL</label>
+                  <p class="settings-description">The main website the bot should learn from</p>
+                </div>
+                <div class="settings-input">
+                  <input type="text" class="form-input" id="wsWebsiteUrl" placeholder="e.g. https://premiertubular.com">
+                </div>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <label>Enable Auto-Sync</label>
+                  <p class="settings-description">Keep content updated automatically</p>
+                </div>
+                <div class="settings-input">
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="wsAutoSyncToggle">
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <label>Sync Interval (hours)</label>
+                  <p class="settings-description">How often the bot re-reads the website</p>
+                </div>
+                <div class="settings-input">
+                  <input type="number" class="form-input" id="wsSyncIntervalHours" min="1" max="24" step="1" placeholder="6">
+                </div>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label"></div>
+                <div class="settings-input" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                  <button class="btn btn-primary" onclick="saveWebsiteSyncSettings()" style="background:linear-gradient(135deg,#f4b400,#4285f4);border:none;">
+                    <i class="fas fa-save"></i> Save Website Sync
+                  </button>
+                  <button class="btn btn-secondary" onclick="runWebsiteSyncNow()">
+                    <i class="fas fa-sync"></i> Run Sync Now
+                  </button>
+                  <span id="wsSyncStatus" style="font-size:13px;white-space:pre-line;"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- ===== END WEBSITE AUTO-SYNC ===== -->
+
+          <div class="section-card">
+            <div class="section-header">
+              <h3><i class="fas fa-reply"></i> Bot Behavior</h3>
+            </div>
+            <div class="settings-form">
+              <div class="settings-row">
+                <div class="settings-label">
+                  <label>Enable Auto-Reply</label>
+                  <p class="settings-description">Automatically respond to messages</p>
+                </div>
+                <div class="settings-input">
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="botEnableAutoReply" checked>
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <label>Welcome Message</label>
+                  <p class="settings-description">First message sent to new contacts</p>
+                </div>
+                <div class="settings-input">
+                  <textarea class="form-textarea" id="botWelcomeMessage" rows="3" placeholder="Enter welcome message">Welcome to PTIS Chatbot! 👋 How can we help you today?</textarea>
+                </div>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <label>Away Message</label>
+                  <p class="settings-description">Message when outside business hours</p>
+                </div>
+                <div class="settings-input">
+                  <textarea class="form-textarea" id="botAwayMessage" rows="3" placeholder="Enter away message">We're currently offline. Our team will respond during business hours (9 AM - 6 PM).</textarea>
+                </div>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <label>Response Delay</label>
+                  <p class="settings-description">Delay before sending auto-reply (seconds)</p>
+                </div>
+                <div class="settings-input">
+                  <input type="number" id="botResponseDelay" class="form-input" value="2" min="0" max="60">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section-card">
+            <div class="section-header">
+              <h3><i class="fas fa-brain"></i> AI Configuration <span style="background:#f55036;color:#fff;font-size:11px;padding:2px 8px;border-radius:10px;margin-left:8px;">Groq — Llama</span></h3>
+            </div>
+            
+            <div class="settings-form">
+              <div class="settings-row">
+                <div class="settings-label">
+                  <label>Enable AI Responses</label>
+                  <p class="settings-description">Use Groq (Llama) AI to generate smart replies</p>
+                </div>
+                <div class="settings-input">
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="enableAIToggle" checked>
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <label>Groq API Key</label>
+                  <p class="settings-description">Get a free key from <a href="https://console.groq.com/keys" target="_blank" style="color:#f55036;">console.groq.com</a> &mdash; Free, no credit card needed</p>
+                </div>
+                <div class="settings-input" style="display:flex;gap:8px;align-items:center;">
+                  <input type="password" id="groqApiKeyInput" class="form-input" placeholder="gsk_..." style="flex:1;">
+                  <button class="btn btn-sm" onclick="toggleApiKeyVisibility()" title="Show/Hide" style="padding:8px 12px;"><i class="fas fa-eye" id="apiKeyEyeIcon"></i></button>
+                  <button class="btn btn-primary btn-sm" onclick="saveGroqKey()" style="padding:8px 16px;white-space:nowrap;"><i class="fas fa-save"></i> Save Key</button>
+                </div>
+              </div>
+
+              <div id="geminiStatusRow" class="settings-row" style="display:none;">
+                <div class="settings-label">
+                  <label>AI Status</label>
+                </div>
+                <div class="settings-input">
+                  <span id="geminiStatusBadge" style="padding:4px 12px;border-radius:20px;font-size:13px;font-weight:600;"></span>
+                </div>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <label>AI Model</label>
+                  <p class="settings-description">Groq model to use for responses</p>
+                </div>
+                <div class="settings-input">
+                  <select class="form-select" id="geminiModelSelect">
+                    <option value="llama-3.3-70b-versatile" selected>Llama 3.3 70B Versatile ⚡ (Best Quality)</option>
+                    <option value="llama-3.1-8b-instant">Llama 3.1 8B Instant (Fastest — 14,400 req/day)</option>
+                    <option value="meta-llama/llama-4-scout-17b-16e-instruct">Llama 4 Scout 17B (Latest)</option>
+                    <option value="meta-llama/llama-4-maverick-17b-128e-instruct">Llama 4 Maverick 17B (Advanced)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <label>Response Tone</label>
+                  <p class="settings-description">AI personality and tone</p>
+                </div>
+                <div class="settings-input">
+                  <select class="form-select" id="aiToneSelect">
+                    <option value="professional" selected>Professional</option>
+                    <option value="friendly">Friendly</option>
+                    <option value="casual">Casual</option>
+                    <option value="formal">Formal</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <label>System Prompt</label>
+                  <p class="settings-description">Instructions that define the AI's behavior</p>
+                </div>
+                <div class="settings-input">
+                  <textarea class="form-textarea" id="systemPromptInput" rows="5">You are a professional customer service AI assistant. Greet customers warmly, understand their needs, provide helpful information, and handle complaints with empathy. Keep responses concise (2-3 sentences). Always be polite and solution-oriented.</textarea>
+                </div>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label"></div>
+                <div class="settings-input" style="display:flex;gap:10px;">
+                  <button class="btn btn-primary" onclick="saveAISettings()"><i class="fas fa-save"></i> Save AI Settings</button>
+                  <button class="btn btn-secondary" onclick="testGroqConnection()"><i class="fas fa-flask"></i> Test Connection</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section-card">
+            <div class="section-header">
+              <h3><i class="fas fa-clock"></i> Business Hours</h3>
+            </div>
+            
+            <div class="settings-form">
+              <div class="business-hours-grid">
+                <div class="business-hour-row">
+                  <div class="day-toggle">
+                    <input type="checkbox" id="monday" checked>
+                    <label for="monday">Monday</label>
+                  </div>
+                  <input type="time" id="monday-start" class="form-input-time" value="09:00">
+                  <span>to</span>
+                  <input type="time" id="monday-end" class="form-input-time" value="18:00">
+                </div>
+                
+                <div class="business-hour-row">
+                  <div class="day-toggle">
+                    <input type="checkbox" id="tuesday" checked>
+                    <label for="tuesday">Tuesday</label>
+                  </div>
+                  <input type="time" id="tuesday-start" class="form-input-time" value="09:00">
+                  <span>to</span>
+                  <input type="time" id="tuesday-end" class="form-input-time" value="18:00">
+                </div>
+                
+                <div class="business-hour-row">
+                  <div class="day-toggle">
+                    <input type="checkbox" id="wednesday" checked>
+                    <label for="wednesday">Wednesday</label>
+                  </div>
+                  <input type="time" id="wednesday-start" class="form-input-time" value="09:00">
+                  <span>to</span>
+                  <input type="time" id="wednesday-end" class="form-input-time" value="18:00">
+                </div>
+                
+                <div class="business-hour-row">
+                  <div class="day-toggle">
+                    <input type="checkbox" id="thursday" checked>
+                    <label for="thursday">Thursday</label>
+                  </div>
+                  <input type="time" id="thursday-start" class="form-input-time" value="09:00">
+                  <span>to</span>
+                  <input type="time" id="thursday-end" class="form-input-time" value="18:00">
+                </div>
+                
+                <div class="business-hour-row">
+                  <div class="day-toggle">
+                    <input type="checkbox" id="friday" checked>
+                    <label for="friday">Friday</label>
+                  </div>
+                  <input type="time" id="friday-start" class="form-input-time" value="09:00">
+                  <span>to</span>
+                  <input type="time" id="friday-end" class="form-input-time" value="18:00">
+                </div>
+                
+                <div class="business-hour-row">
+                  <div class="day-toggle">
+                    <input type="checkbox" id="saturday">
+                    <label for="saturday">Saturday</label>
+                  </div>
+                  <input type="time" id="saturday-start" class="form-input-time" value="10:00" disabled>
+                  <span>to</span>
+                  <input type="time" id="saturday-end" class="form-input-time" value="14:00" disabled>
+                </div>
+                
+                <div class="business-hour-row">
+                  <div class="day-toggle">
+                    <input type="checkbox" id="sunday">
+                    <label for="sunday">Sunday</label>
+                  </div>
+                  <input type="time" id="sunday-start" class="form-input-time" value="10:00" disabled>
+                  <span>to</span>
+                  <input type="time" id="sunday-end" class="form-input-time" value="14:00" disabled>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-actions">
+            <button class="btn-settings-save" onclick="saveSettings('bot')">
+              <i class="fas fa-save"></i> Save Changes
+            </button>
+            <button class="btn-settings-cancel" onclick="resetSettings('bot')">
+              <i class="fas fa-undo"></i> Reset
+            </button>
+          </div>
+        </div>
+
+        <!-- Notifications Tab -->
+        <div id="notificationsSettings" class="settings-tab-content notifications-settings">
+          <div class="section-card notifications-card">
+            <div class="section-header">
+              <h3><i class="fas fa-bell-slash"></i> Notification Preferences</h3>
+            </div>
+            
+            <div class="settings-form notifications-settings-grid">
+              <div class="settings-row notification-setting-row">
+                <div class="settings-label">
+                  <label>Desktop Notifications</label>
+                  <p class="settings-description">Show browser notifications</p>
+                </div>
+                <div class="settings-input">
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="notifDesktopToggle" checked>
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="settings-row notification-setting-row">
+                <div class="settings-label">
+                  <label>Sound Alerts</label>
+                  <p class="settings-description">Play sound for new messages</p>
+                </div>
+                <div class="settings-input">
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="notifSoundToggle" checked onchange="syncSoundSelectorVisibility()">
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+
+              <!-- Sound Type Selector — full-width row -->
+              <div class="settings-row notification-setting-row sound-selector-row" id="soundSelectorRow">
+                <div class="settings-label">
+                  <label for="alertSoundSelect">Alert Sound</label>
+                  <p class="settings-description">Choose which sound plays for alerts</p>
+                </div>
+                <div class="settings-input sound-select-input">
+                  <select id="alertSoundSelect" class="settings-select sound-select">
+                    <option value="ding">🔔 Ding</option>
+                    <option value="double-beep">📳 Double Beep</option>
+                    <option value="chime">🎵 Chime</option>
+                    <option value="alert">🚨 Alert</option>
+                    <option value="pop">💬 Soft Pop</option>
+                    <option value="triple-chime">✨ Triple Chime</option>
+                    <option value="sonar">🛰️ Sonar Ping</option>
+                    <option value="bell-rise">🔔 Bell Rise</option>
+                  </select>
+                  <button class="btn-preview-sound" onclick="previewAlertSound()" title="Preview selected sound">
+                    <i class="fas fa-play"></i> Preview
+                  </button>
+                </div>
+              </div>
+
+              <div class="settings-row notification-setting-row">
+                <div class="settings-label">
+                  <label>Email Notifications</label>
+                  <p class="settings-description">Send event and summary emails to the configured SMTP inbox</p>
+                </div>
+                <div class="settings-input">
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="notifEmailToggle">
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="settings-row notification-setting-row">
+                <div class="settings-label">
+                  <label>New Message Alert</label>
+                  <p class="settings-description">Notify on new messages</p>
+                </div>
+                <div class="settings-input">
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="notifMessageToggle" checked>
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="settings-row notification-setting-row">
+                <div class="settings-label">
+                  <label>Task Updates</label>
+                  <p class="settings-description">Notify when tasks are updated</p>
+                </div>
+                <div class="settings-input">
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="notifTaskToggle" checked>
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="settings-row notification-setting-row">
+                <div class="settings-label">
+                  <label>Negative Sentiment Alert</label>
+                  <p class="settings-description">Alert on negative feedback</p>
+                </div>
+                <div class="settings-input">
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="notifNegativeToggle" checked>
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="settings-row notification-setting-row">
+                <div class="settings-label">
+                  <label>Daily Summary</label>
+                  <p class="settings-description">Email daily activity summary</p>
+                </div>
+                <div class="settings-input">
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="notifDailySummaryToggle">
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-actions notifications-actions">
+            <button class="btn-settings-save" onclick="saveSettings('notifications')">
+              <i class="fas fa-save"></i> Save Changes
+            </button>
+            <button class="btn-settings-cancel" onclick="resetSettings('notifications')">
+              <i class="fas fa-undo"></i> Reset
+            </button>
+          </div>
+        </div>
+
+        <!-- Security Tab -->
+        <div id="securitySettings" class="settings-tab-content">
+          <div class="section-card">
+            <div class="section-header">
+              <h3><i class="fas fa-lock"></i> Account Security</h3>
+            </div>
+            
+            <div class="settings-form">
+              <div class="settings-row">
+                <div class="settings-label">
+                  <label>Change Password</label>
+                  <p class="settings-description">Update your account password</p>
+                </div>
+                <div class="settings-input">
+                  <button class="btn-secondary" id="securityChangePasswordBtn" onclick="changePassword()">
+                    <i class="fas fa-key"></i> Change Password
+                  </button>
+                </div>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <label>Two-Factor Authentication</label>
+                  <p class="settings-description">Add extra security to your account</p>
+                </div>
+                <div class="settings-input">
+                  <button class="btn-secondary" id="security2faBtn" onclick="setup2FA()">
+                    <i class="fas fa-mobile-alt"></i> Enable 2FA
+                  </button>
+                </div>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <label>Session Timeout</label>
+                  <p class="settings-description">Auto logout after inactivity (minutes)</p>
+                </div>
+                <div class="settings-input">
+                  <select class="form-select" id="securitySessionTimeout">
+                    <option value="15">15 minutes</option>
+                    <option value="30" selected>30 minutes</option>
+                    <option value="60">1 hour</option>
+                    <option value="120">2 hours</option>
+                    <option value="never">Never</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <label>IP Whitelist</label>
+                  <p class="settings-description">Restrict access to specific IPs</p>
+                </div>
+                <div class="settings-input">
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="securityIpWhitelistEnabled">
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <label>Allowed IP Addresses</label>
+                  <p class="settings-description">Enter one IP per line, e.g. 203.0.113.25</p>
+                </div>
+                <div class="settings-input">
+                  <textarea class="form-textarea" id="securityIpWhitelistEntries" rows="4" placeholder="127.0.0.1&#10;203.0.113.25"></textarea>
+                </div>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <label>Login Notifications</label>
+                  <p class="settings-description">Notify on new login attempts</p>
+                </div>
+                <div class="settings-input">
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="securityLoginNotifications" checked>
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section-card">
+            <div class="section-header">
+              <h3><i class="fas fa-database"></i> Data & Privacy</h3>
+            </div>
+            
+            <div class="settings-form">
+              <div class="settings-row">
+                <div class="settings-label">
+                  <label>Data Retention</label>
+                  <p class="settings-description">How long to keep message data</p>
+                </div>
+                <div class="settings-input">
+                  <select class="form-select" id="securityDataRetention">
+                    <option value="30">30 days</option>
+                    <option value="90" selected>90 days</option>
+                    <option value="180">180 days</option>
+                    <option value="365">1 year</option>
+                    <option value="forever">Forever</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <label>Export Data</label>
+                  <p class="settings-description">Download all your data</p>
+                </div>
+                <div class="settings-input">
+                  <button class="btn-secondary" onclick="exportAllUserData()">
+                    <i class="fas fa-download"></i> Export Data
+                  </button>
+                </div>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <label>Delete Account</label>
+                  <p class="settings-description">Permanently delete your account</p>
+                </div>
+                <div class="settings-input">
+                  <button class="btn-danger" onclick="deleteAccount()">
+                    <i class="fas fa-trash"></i> Delete Account
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-actions">
+            <button class="btn-settings-save" onclick="saveSettings('security')">
+              <i class="fas fa-save"></i> Save Changes
+            </button>
+            <button class="btn-settings-cancel" onclick="resetSettings('security')">
+              <i class="fas fa-undo"></i> Reset
+            </button>
+          </div>
+        </div>
+
+        <!-- Advanced Tab -->
+        <div id="advancedSettings" class="settings-tab-content">
+          <div class="section-card">
+            <div class="section-header">
+              <h3><i class="fas fa-code"></i> Developer Options</h3>
+            </div>
+            
+            <div class="settings-form">
+              <div class="settings-row">
+                <div class="settings-label">
+                  <label>Debug Mode</label>
+                  <p class="settings-description">Show detailed logs in console</p>
+                </div>
+                <div class="settings-input">
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="advancedDebugMode">
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <label>API Rate Limit</label>
+                  <p class="settings-description">Requests per minute</p>
+                </div>
+                <div class="settings-input">
+                  <input type="number" class="form-input" id="advancedApiRateLimit" value="60" min="10" max="1000">
+                </div>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <label>Webhook Retry</label>
+                  <p class="settings-description">Retry failed webhook deliveries</p>
+                </div>
+                <div class="settings-input">
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="advancedWebhookRetry" checked>
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <label>Max Retry Attempts</label>
+                  <p class="settings-description">Maximum webhook retry attempts</p>
+                </div>
+                <div class="settings-input">
+                  <input type="number" class="form-input" id="advancedMaxRetryAttempts" value="3" min="1" max="10">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section-card">
+            <div class="section-header">
+              <h3><i class="fas fa-broom"></i> Maintenance</h3>
+            </div>
+            
+            <div class="settings-form">
+              <div class="settings-row">
+                <div class="settings-label">
+                  <label>Clear Cache</label>
+                  <p class="settings-description">Clear browser cache and reload</p>
+                </div>
+                <div class="settings-input">
+                  <button class="btn-secondary" onclick="clearCache()">
+                    <i class="fas fa-trash-alt"></i> Clear Cache
+                  </button>
+                </div>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <label>Reset Settings</label>
+                  <p class="settings-description">Restore all default settings</p>
+                </div>
+                <div class="settings-input">
+                  <button class="btn-danger" onclick="resetAllSettings()">
+                    <i class="fas fa-undo-alt"></i> Reset All
+                  </button>
+                </div>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <label>Database Backup</label>
+                  <p class="settings-description">Create a backup of your data</p>
+                </div>
+                <div class="settings-input">
+                  <button class="btn-secondary" onclick="createBackup()">
+                    <i class="fas fa-database"></i> Create Backup
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-actions">
+            <button class="btn-settings-save" onclick="saveSettings('advanced')">
+              <i class="fas fa-save"></i> Save Changes
+            </button>
+            <button class="btn-settings-cancel" onclick="resetSettings('advanced')">
+              <i class="fas fa-undo"></i> Reset
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chat Modal -->
+    <div class="chat-modal" id="chatModal">
+      <div class="chat-window">
+        <div class="chat-header">
+          <div class="chat-contact-info">
+            <div class="chat-avatar" id="chatAvatarModal">AK</div>
+            <div class="chat-contact-details">
+              <h3 id="chatContactName">Ahmed Khan</h3>
+              <p><i class="fab fa-whatsapp"></i> <span id="chatContactPhone">+92 300 1234567</span></p>
+            </div>
+          </div>
+          <div class="chat-header-actions">
+            <button class="chat-btn" id="chatCallBtn" title="Voice Call" onclick="startVoiceCall()"><i class="fas fa-phone"></i></button>
+            <button class="chat-btn" id="chatSearchBtn" title="Search in Conversation" onclick="toggleChatSearch()"><i class="fas fa-search"></i></button>
+            <button class="chat-btn close" onclick="closeChatModal()" title="Close"><i class="fas fa-times"></i></button>
+          </div>
+        </div>
+
+        <!-- In-chat search bar (hidden by default) -->
+        <div class="chat-search-bar" id="chatSearchBar">
+          <i class="fas fa-search"></i>
+          <input type="text" id="chatSearchInput" placeholder="Search messages..."
+            oninput="filterChatMessages(this.value)"
+            onkeydown="if(event.key==='Enter'){event.shiftKey?searchNavigate(-1):searchNavigate(1)}" />
+          <span id="chatSearchCount" class="search-count"></span>
+          <button class="search-nav-btn" onclick="searchNavigate(-1)" title="Previous match (Shift+Enter)"><i class="fas fa-chevron-up"></i></button>
+          <button class="search-nav-btn" onclick="searchNavigate(1)"  title="Next match (Enter)"><i class="fas fa-chevron-down"></i></button>
+          <div class="search-divider"></div>
+          <button class="search-close-btn" onclick="clearChatSearch();toggleChatSearch()"><i class="fas fa-times"></i></button>
+        </div>
+
+        <div class="chat-messages-area" id="chatMessagesArea">
+          <p class="loading" style="text-align: center; padding: 40px; color: var(--text-secondary);">Select a conversation to view messages</p>
+        </div>
+
+        <div class="chat-input-area">
+          <!-- Attachment Menu -->
+          <div class="attachment-menu" id="attachmentMenu">
+            <div class="attachment-option">
+              <div class="attachment-icon camera">
+                <i class="fas fa-camera"></i>
+              </div>
+              <span>Camera</span>
+            </div>
+            <div class="attachment-option">
+              <div class="attachment-icon document">
+                <i class="fas fa-file-alt"></i>
+              </div>
+              <span>Document</span>
+            </div>
+            <div class="attachment-option">
+              <div class="attachment-icon media">
+                <i class="fas fa-image"></i>
+              </div>
+              <span>Media</span>
+            </div>
+          </div>
+
+          <!-- Hidden file inputs for attachments -->
+          <input type="file" id="mediaFileInput" accept="image/*,video/*,audio/*" style="display:none">
+          <input type="file" id="documentFileInput" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.ppt,.pptx,.csv,.rtf" style="display:none">
+          <input type="file" id="cameraFileInput" accept="image/*" capture="camera" style="display:none">
+
+          <!-- Emoji Picker -->
+          <div class="emoji-picker" id="emojiPicker">
+            <div class="emoji-header">
+              <span class="emoji-category active" data-category="smileys"><i class="far fa-smile"></i></span>
+              <span class="emoji-category" data-category="hearts"><i class="fas fa-heart"></i></span>
+              <span class="emoji-category" data-category="hands"><i class="far fa-hand-paper"></i></span>
+            </div>
+            <div class="emoji-grid" id="emojiGrid">
+              <span class="emoji-item" data-emoji="😀">😀</span>
+              <span class="emoji-item" data-emoji="😁">😁</span>
+              <span class="emoji-item" data-emoji="😂">😂</span>
+              <span class="emoji-item" data-emoji="🤣">🤣</span>
+              <span class="emoji-item" data-emoji="😃">😃</span>
+              <span class="emoji-item" data-emoji="😄">😄</span>
+              <span class="emoji-item" data-emoji="😅">😅</span>
+              <span class="emoji-item" data-emoji="😆">😆</span>
+              <span class="emoji-item" data-emoji="😉">😉</span>
+              <span class="emoji-item" data-emoji="😊">😊</span>
+              <span class="emoji-item" data-emoji="😋">😋</span>
+              <span class="emoji-item" data-emoji="😎">😎</span>
+              <span class="emoji-item" data-emoji="😍">😍</span>
+              <span class="emoji-item" data-emoji="😘">😘</span>
+              <span class="emoji-item" data-emoji="🥰">🥰</span>
+              <span class="emoji-item" data-emoji="😗">😗</span>
+              <span class="emoji-item" data-emoji="😙">😙</span>
+              <span class="emoji-item" data-emoji="🥳">🥳</span>
+              <span class="emoji-item" data-emoji="😚">😚</span>
+              <span class="emoji-item" data-emoji="🙂">🙂</span>
+              <span class="emoji-item" data-emoji="🤗">🤗</span>
+              <span class="emoji-item" data-emoji="🤩">🤩</span>
+              <span class="emoji-item" data-emoji="🤔">🤔</span>
+              <span class="emoji-item" data-emoji="😏">😏</span>
+              <span class="emoji-item" data-emoji="😐">😐</span>
+              <span class="emoji-item" data-emoji="😑">😑</span>
+              <span class="emoji-item" data-emoji="😶">😶</span>
+              <span class="emoji-item" data-emoji="🙄">🙄</span>
+              <span class="emoji-item" data-emoji="😏">😏</span>
+              <span class="emoji-item" data-emoji="😣">😣</span>
+              <span class="emoji-item" data-emoji="😥">😥</span>
+              <span class="emoji-item" data-emoji="😮">😮</span>
+              <span class="emoji-item" data-emoji="🤐">🤐</span>
+              <span class="emoji-item" data-emoji="😯">😯</span>
+              <span class="emoji-item" data-emoji="😪">😪</span>
+              <span class="emoji-item" data-emoji="😫">😫</span>
+              <span class="emoji-item" data-emoji="🥱">🥱</span>
+              <span class="emoji-item" data-emoji="😴">😴</span>
+              <span class="emoji-item" data-emoji="😌">😌</span>
+              <span class="emoji-item" data-emoji="😛">😛</span>
+              <span class="emoji-item" data-emoji="😜">😜</span>
+              <span class="emoji-item" data-emoji="😝">😝</span>
+              <span class="emoji-item" data-emoji="🤤">🤤</span>
+              <span class="emoji-item" data-emoji="😒">😒</span>
+              <span class="emoji-item" data-emoji="😓">😓</span>
+              <span class="emoji-item" data-emoji="😔">😔</span>
+              <span class="emoji-item" data-emoji="😕">😕</span>
+              <span class="emoji-item" data-emoji="🙃">🙃</span>
+              <span class="emoji-item" data-emoji="🥺">🥺</span>
+              <span class="emoji-item" data-emoji="🤑">🤑</span>
+              <span class="emoji-item" data-emoji="😲">😲</span>
+              <span class="emoji-item" data-emoji="😞">😞</span>
+              <span class="emoji-item" data-emoji="😟">😟</span>
+              <span class="emoji-item" data-emoji="😤">😤</span>
+              <span class="emoji-item" data-emoji="😢">😢</span>
+              <span class="emoji-item" data-emoji="😭">😭</span>
+              <span class="emoji-item" data-emoji="😦">😦</span>
+              <span class="emoji-item" data-emoji="😧">😧</span>
+              <span class="emoji-item" data-emoji="😨">😨</span>
+              <span class="emoji-item" data-emoji="😩">😩</span>
+              <span class="emoji-item" data-emoji="🤯">🤯</span>
+              <span class="emoji-item" data-emoji="😬">😬</span>
+              <span class="emoji-item" data-emoji="😰">😰</span>
+              <span class="emoji-item" data-emoji="😱">😱</span>
+              <span class="emoji-item" data-emoji="🥵">🥵</span>
+              <span class="emoji-item" data-emoji="🥶">🥶</span>
+              <span class="emoji-item" data-emoji="😳">😳</span>
+              <span class="emoji-item" data-emoji="🤪">🤪</span>
+              <span class="emoji-item" data-emoji="😵">😵</span>
+              <span class="emoji-item" data-emoji="🥴">🥴</span>
+              <span class="emoji-item" data-emoji="😠">😠</span>
+              <span class="emoji-item" data-emoji="😡">😡</span>
+              <span class="emoji-item" data-emoji="🤬">🤬</span>
+              <span class="emoji-item" data-emoji="❤️">❤️</span>
+              <span class="emoji-item" data-emoji="🧡">🧡</span>
+              <span class="emoji-item" data-emoji="💛">💛</span>
+              <span class="emoji-item" data-emoji="💚">💚</span>
+              <span class="emoji-item" data-emoji="💙">💙</span>
+              <span class="emoji-item" data-emoji="💜">💜</span>
+              <span class="emoji-item" data-emoji="🤎">🤎</span>
+              <span class="emoji-item" data-emoji="🖤">🖤</span>
+              <span class="emoji-item" data-emoji="🤍">🤍</span>
+              <span class="emoji-item" data-emoji="👍">👍</span>
+              <span class="emoji-item" data-emoji="👎">👎</span>
+              <span class="emoji-item" data-emoji="👌">👌</span>
+              <span class="emoji-item" data-emoji="✌️">✌️</span>
+              <span class="emoji-item" data-emoji="🤞">🤞</span>
+              <span class="emoji-item" data-emoji="🤟">🤟</span>
+              <span class="emoji-item" data-emoji="🤘">🤘</span>
+              <span class="emoji-item" data-emoji="🤙">🤙</span>
+              <span class="emoji-item" data-emoji="👈">👈</span>
+              <span class="emoji-item" data-emoji="👉">👉</span>
+              <span class="emoji-item" data-emoji="👆">👆</span>
+              <span class="emoji-item" data-emoji="👇">👇</span>
+              <span class="emoji-item" data-emoji="☝️">☝️</span>
+              <span class="emoji-item" data-emoji="✋">✋</span>
+              <span class="emoji-item" data-emoji="🤚">🤚</span>
+              <span class="emoji-item" data-emoji="🖐️">🖐️</span>
+              <span class="emoji-item" data-emoji="👋">👋</span>
+              <span class="emoji-item" data-emoji="🤝">🤝</span>
+              <span class="emoji-item" data-emoji="🙏">🙏</span>
+              <span class="emoji-item" data-emoji="💪">💪</span>
+              <span class="emoji-item" data-emoji="🙌">🙌</span>
+              <span class="emoji-item" data-emoji="👏">👏</span>
+              <span class="emoji-item" data-emoji="🎉">🎉</span>
+              <span class="emoji-item" data-emoji="🎊">🎊</span>
+              <span class="emoji-item" data-emoji="✨">✨</span>
+              <span class="emoji-item" data-emoji="🔥">🔥</span>
+              <span class="emoji-item" data-emoji="💯">💯</span>
+            </div>
+          </div>
+
+          <div class="chat-input-box">
+            <button class="chat-attach-btn" id="attachBtn"><i class="fas fa-paperclip"></i></button>
+            <input type="text" placeholder="Type a message..." id="chatInput">
+            <button class="chat-attach-btn" id="emojiBtn"><i class="far fa-smile"></i></button>
+          </div>
+          <button class="chat-send-btn"><i class="fas fa-paper-plane"></i></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Camera Modal -->
+  <div class="camera-modal-overlay" id="cameraModalOverlay" style="display:none;">
+    <div class="camera-modal">
+      <div class="camera-modal-header">
+        <h3><i class="fas fa-camera"></i> Take a Photo</h3>
+        <button class="camera-close-btn" onclick="closeCameraModal()"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="camera-modal-body">
+        <video id="cameraVideo" autoplay playsinline></video>
+        <canvas id="cameraCanvas" style="display:none;"></canvas>
+        <img id="cameraPreview" style="display:none;" alt="Captured photo">
+      </div>
+      <div class="camera-modal-footer">
+        <div id="cameraCaptureActions" style="display:flex;gap:12px;">
+          <button class="cam-btn cam-btn-cancel" onclick="closeCameraModal()"><i class="fas fa-times"></i> Cancel</button>
+          <button class="cam-btn cam-btn-capture" onclick="capturePhoto()"><i class="fas fa-camera"></i> Capture</button>
+        </div>
+        <div id="cameraPreviewActions" style="display:none;gap:12px;">
+          <button class="cam-btn cam-btn-cancel" onclick="retakePhoto()"><i class="fas fa-redo"></i> Retake</button>
+          <button class="cam-btn cam-btn-send" onclick="sendCapturedPhoto()"><i class="fas fa-paper-plane"></i> Send</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Profile Edit Modal -->
+  <div class="modal-overlay" id="profileEditModal" style="display:none;" onclick="if(event.target===this)closeProfileModal()">
+    <div class="modal-container" style="max-width:520px;">
+      <div class="modal-header">
+        <h3><i class="fas fa-user-edit"></i> Edit Profile</h3>
+        <button class="modal-close" onclick="closeProfileModal()"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body" style="padding:24px;display:flex;flex-direction:column;gap:14px;">
+        <input type="hidden" id="profileEditId">
+        <div>
+          <label style="display:block;margin-bottom:6px;color:var(--text-secondary);font-size:13px;">Name</label>
+          <input id="profileEditName" type="text" placeholder="Name" style="width:100%;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;padding:10px 12px;color:var(--text-primary);font-size:14px;">
+        </div>
+        <div>
+          <label style="display:block;margin-bottom:6px;color:var(--text-secondary);font-size:13px;">Designation</label>
+          <input id="profileEditDesignation" type="text" placeholder="Designation" style="width:100%;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;padding:10px 12px;color:var(--text-primary);font-size:14px;">
+        </div>
+        <div>
+          <label style="display:block;margin-bottom:6px;color:var(--text-secondary);font-size:13px;">Phone</label>
+          <input id="profileEditPhone" type="text" placeholder="Phone" style="width:100%;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;padding:10px 12px;color:var(--text-primary);font-size:14px;">
+        </div>
+        <div>
+          <label style="display:block;margin-bottom:6px;color:var(--text-secondary);font-size:13px;">Email</label>
+          <input id="profileEditEmail" type="email" placeholder="Email" style="width:100%;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;padding:10px 12px;color:var(--text-primary);font-size:14px;">
+        </div>
+      </div>
+      <div class="modal-footer" style="padding:16px 24px;display:flex;justify-content:flex-end;gap:10px;border-top:1px solid var(--border-color);">
+        <button class="btn-action" style="background:var(--bg-tertiary);" onclick="closeProfileModal()">Cancel</button>
+        <button class="btn-action" style="background:linear-gradient(135deg,#25D366,#128C7E);color:#ffffff;" onclick="saveProfileEdit()"><i class="fas fa-save"></i> Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>

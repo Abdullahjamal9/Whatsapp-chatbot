@@ -1,0 +1,7 @@
+{
+  "debugMode": false,
+  "apiRateLimit": 60,
+  "webhookRetry": true,
+  "maxRetryAttempts": 3,
+  "updatedAt": "2026-03-25T06:44:56.026Z"
+}

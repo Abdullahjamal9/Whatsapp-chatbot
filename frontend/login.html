@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PTIS Chatbot - Login</title>
+  <link rel="icon" type="image/jpeg" href="assets/logo.jpeg">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --green: #25D366;
+      --green-dark: #1da851;
+      --green-teal: #128C7E;
+      --bg: #0f1419;
+      --card-bg: rgba(26, 31, 38, 0.9);
+      --border: rgba(37, 211, 102, 0.2);
+      --text: #e4e6eb;
+      --text-dim: #8b949e;
+      --input-bg: rgba(37, 45, 55, 0.8);
+      --error: #f44336;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow-y: auto;
+      padding: 40px 0;
+    }
+
+    /* ── Background ── */
+    .bg {
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      z-index: 0;
+    }
+
+    .bg-grid {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(37,211,102,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(37,211,102,0.04) 1px, transparent 1px);
+      background-size: 50px 50px;
+      animation: gridMove 20s linear infinite;
+    }
+
+    @keyframes gridMove {
+      from { background-position: 0 0; }
+      to   { background-position: 50px 50px; }
+    }
+
+    .orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(90px);
+      animation: orbPulse 8s ease-in-out infinite;
+    }
+    .orb-1 { width: 600px; height: 600px; background: #25D366; opacity: 0.07; top: -200px; right: -150px; animation-delay: 0s; }
+    .orb-2 { width: 500px; height: 500px; background: #128C7E; opacity: 0.08; bottom: -150px; left: -150px; animation-delay: 4s; }
+    .orb-3 { width: 250px; height: 250px; background: #25D366; opacity: 0.05; top: 50%; left: 50%; transform: translate(-50%,-50%); animation-delay: 2s; }
+
+    @keyframes orbPulse {
+      0%,100% { opacity: 0.07; transform: scale(1); }
+      50%      { opacity: 0.13; transform: scale(1.12); }
+    }
+    .orb-3 { animation-name: orbPulse3; }
+    @keyframes orbPulse3 {
+      0%,100% { opacity: 0.05; transform: translate(-50%,-50%) scale(1); }
+      50%      { opacity: 0.10; transform: translate(-50%,-50%) scale(1.2); }
+    }
+
+    /* Floating chat bubbles */
+    .chat-bubble {
+      position: absolute;
+      padding: 8px 14px;
+      border-radius: 16px;
+      font-size: 11px;
+      color: rgba(255,255,255,0.12);
+      pointer-events: none;
+      white-space: nowrap;
+      animation: floatUp linear infinite;
+    }
+    .chat-bubble.sent     { background: rgba(37,211,102,0.07); border: 1px solid rgba(37,211,102,0.1); border-bottom-right-radius: 3px; }
+    .chat-bubble.received { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-bottom-left-radius: 3px; }
+
+    @keyframes floatUp {
+      0%   { transform: translateY(110vh); opacity: 0; }
+      5%   { opacity: 1; }
+      95%  { opacity: 0.4; }
+      100% { transform: translateY(-15vh); opacity: 0; }
+    }
+
+    /* ── Login Wrapper ── */
+    .login-wrapper {
+      position: relative;
+      z-index: 10;
+      width: 100%;
+      max-width: 440px;
+      padding: 24px 24px 48px;
+    }
+
+    /* Logo */
+    .login-logo {
+      text-align: center;
+      margin-bottom: 28px;
+      animation: slideUp 0.6s cubic-bezier(0.16,1,0.3,1) both;
+    }
+
+    .logo-icon {
+      width: 82px;
+      height: 82px;
+      background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+      border-radius: 26px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 40px;
+      color: #fff;
+      margin-bottom: 16px;
+      box-shadow:
+        0 0 0 1px rgba(37,211,102,0.3),
+        0 0 40px rgba(37,211,102,0.35),
+        0 0 80px rgba(37,211,102,0.1);
+      animation: iconGlow 3s ease-in-out infinite;
+    }
+
+    @keyframes iconGlow {
+      0%,100% { box-shadow: 0 0 0 1px rgba(37,211,102,0.3), 0 0 40px rgba(37,211,102,0.35), 0 0 80px rgba(37,211,102,0.1); }
+      50%      { box-shadow: 0 0 0 1px rgba(37,211,102,0.5), 0 0 60px rgba(37,211,102,0.55), 0 0 120px rgba(37,211,102,0.2); }
+    }
+
+    .logo-name {
+      font-size: 30px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #25D366, #6ee89f);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -0.5px;
+      line-height: 1;
+    }
+
+    .logo-tag {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-top: 5px;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+    }
+
+    /* Card */
+    .login-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 36px 38px 32px;
+      backdrop-filter: blur(24px);
+      box-shadow:
+        0 30px 60px rgba(0,0,0,0.6),
+        0 0 0 1px rgba(37,211,102,0.04),
+        inset 0 1px 0 rgba(255,255,255,0.06);
+      position: relative;
+      overflow: hidden;
+      animation: slideUp 0.6s cubic-bezier(0.16,1,0.3,1) 0.1s both;
+    }
+
+    /* Top shimmer line */
+    .login-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent 0%, rgba(37,211,102,0.6) 50%, transparent 100%);
+    }
+
+    /* Corner accent */
+    .login-card::after {
+      content: '';
+      position: absolute;
+      top: -60px; right: -60px;
+      width: 120px; height: 120px;
+      background: radial-gradient(circle, rgba(37,211,102,0.12), transparent 70%);
+      border-radius: 50%;
+    }
+
+    .card-heading { font-size: 20px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+    .card-sub     { font-size: 13px; color: var(--text-dim); margin-bottom: 26px; }
+
+    /* Error */
+    .error-box {
+      display: none;
+      align-items: center;
+      gap: 9px;
+      background: rgba(244,67,54,0.1);
+      border: 1px solid rgba(244,67,54,0.25);
+      border-radius: 10px;
+      padding: 11px 15px;
+      font-size: 13px;
+      color: var(--error);
+      margin-bottom: 18px;
+    }
+    .error-box.show { display: flex; }
+
+    /* Form */
+    .form-group { margin-bottom: 18px; }
+
+    .form-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      margin-bottom: 8px;
+    }
+
+    .input-wrap { position: relative; }
+
+    .input-icon {
+      position: absolute;
+      left: 15px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-dim);
+      font-size: 14px;
+      transition: color 0.25s;
+      pointer-events: none;
+    }
+
+    .form-input {
+      width: 100%;
+      background: var(--input-bg);
+      border: 1px solid rgba(37,211,102,0.14);
+      border-radius: 12px;
+      padding: 13px 16px 13px 42px;
+      font-size: 14px;
+      color: var(--text);
+      outline: none;
+      transition: all 0.3s;
+      font-family: inherit;
+    }
+    .form-input::placeholder { color: rgba(139,148,158,0.45); }
+    .form-input:focus {
+      border-color: var(--green);
+      background: rgba(37,211,102,0.05);
+      box-shadow: 0 0 0 3px rgba(37,211,102,0.1);
+    }
+    .input-wrap:focus-within .input-icon { color: var(--green); }
+
+    .eye-btn {
+      position: absolute;
+      right: 13px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      padding: 4px;
+      font-size: 14px;
+      transition: color 0.2s;
+    }
+    .eye-btn:hover { color: var(--green); }
+
+    .forgot-wrap {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: -6px;
+      margin-bottom: 14px;
+    }
+
+    .forgot-btn {
+      background: none;
+      border: none;
+      color: var(--green);
+      font-size: 12px;
+      cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    .forgot-btn:hover { color: #6ee89f; }
+
+    /* Submit button */
+    .submit-btn {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #25D366 0%, #1da851 60%, #128C7E 100%);
+      border: none;
+      border-radius: 12px;
+      color: #fff;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      letter-spacing: 0.4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      margin-top: 6px;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .submit-btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.18), transparent);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .submit-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(37,211,102,0.45); }
+    .submit-btn:hover::before { opacity: 1; }
+    .submit-btn:active { transform: translateY(0); }
+    .submit-btn.loading { pointer-events: none; opacity: 0.82; }
+    .submit-btn.success { background: linear-gradient(135deg, #1da851, #128C7E); }
+
+    .spinner {
+      width: 17px; height: 17px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+      display: none;
+    }
+    .submit-btn.loading .spinner  { display: block; }
+    .submit-btn.loading .btn-text { display: none; }
+    .submit-btn.loading .btn-icon { display: none; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Footer */
+    .card-footer { text-align: center; margin-top: 22px; }
+
+    .secure-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11.5px;
+      color: var(--text-dim);
+      background: rgba(37,211,102,0.06);
+      border: 1px solid rgba(37,211,102,0.1);
+      border-radius: 20px;
+      padding: 6px 14px;
+    }
+    .secure-pill i { color: var(--green); font-size: 11px; }
+
+    /* Animations */
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(28px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      20%      { transform: translateX(-9px); }
+      40%      { transform: translateX(9px); }
+      60%      { transform: translateX(-6px); }
+      80%      { transform: translateX(6px); }
+    }
+    .shake { animation: shake 0.38s ease-in-out; }
+
+    /* Forgot Password Modal */
+    .fp-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.62);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 18px;
+    }
+
+    .fp-card {
+      width: 100%;
+      max-width: 460px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 22px 20px 18px;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 24px 50px rgba(0,0,0,0.55);
+    }
+
+    .fp-title { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+    .fp-sub { color: var(--text-dim); font-size: 12px; margin-bottom: 14px; }
+
+    .fp-row { margin-bottom: 12px; }
+
+    .fp-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 8px;
+    }
+
+    .fp-btn {
+      border: 1px solid rgba(37,211,102,0.24);
+      background: rgba(37,211,102,0.08);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 9px 12px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .fp-btn.primary {
+      background: linear-gradient(135deg, #25D366 0%, #1da851 60%, #128C7E 100%);
+      border: none;
+      color: #fff;
+    }
+
+    .fp-msg {
+      display: none;
+      font-size: 12px;
+      border-radius: 10px;
+      padding: 8px 10px;
+      margin-bottom: 10px;
+    }
+
+    .fp-msg.show { display: block; }
+    .fp-msg.ok { background: rgba(37,211,102,0.12); color: #6ee89f; border: 1px solid rgba(37,211,102,0.26); }
+    .fp-msg.err { background: rgba(244,67,54,0.12); color: #ff8a80; border: 1px solid rgba(244,67,54,0.3); }
+
+    #fpMethodDisplay {
+      background: rgba(37, 45, 55, 0.9);
+      color: var(--text);
+    }
+
+    .fp-hint {
+      margin-top: 6px;
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+
+    .hidden { display: none !important; }
+
+    .otp-step {
+      display: none;
+      margin-top: 8px;
+    }
+
+    .otp-step.show {
+      display: block;
+    }
+
+    .otp-msg {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-bottom: 10px;
+    }
+
+    .otp-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .otp-btn {
+      flex: 1;
+      border: none;
+      border-radius: 10px;
+      padding: 10px 12px;
+      cursor: pointer;
+      font-weight: 600;
+      background: rgba(37, 45, 55, 0.95);
+      color: var(--text);
+    }
+
+    .otp-btn.primary {
+      background: linear-gradient(135deg, #25D366, #128C7E);
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Animated Background -->
+  <div class="bg" id="bg">
+    <div class="bg-grid"></div>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+
+  <!-- Login UI -->
+  <div class="login-wrapper">
+
+    <!-- Logo -->
+    <div class="login-logo">
+      <div class="logo-icon"><i class="fab fa-whatsapp"></i></div>
+      <div class="logo-name">PTIS Chatbot</div>
+      <div class="logo-tag">WhatsApp Bot Dashboard</div>
+    </div>
+
+    <!-- Card -->
+    <div class="login-card" id="loginCard">
+      <div class="card-heading">Welcome back 👋</div>
+      <div class="card-sub">Sign in to access your dashboard</div>
+
+      <div class="error-box" id="errorBox">
+        <i class="fas fa-circle-exclamation"></i>
+        <span id="errorText">Invalid username or password</span>
+      </div>
+
+      <form id="loginForm" onsubmit="handleLogin(event)" autocomplete="on">
+
+        <div id="credentialStep">
+          <div class="form-group">
+            <label class="form-label">Username</label>
+            <div class="input-wrap">
+              <input type="text" id="username" class="form-input"
+                placeholder="Enter username" autocomplete="username" required />
+              <i class="fas fa-user input-icon"></i>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <div class="input-wrap">
+              <input type="password" id="password" class="form-input"
+                placeholder="Enter password" autocomplete="current-password" required />
+              <i class="fas fa-lock input-icon"></i>
+              <button type="button" class="eye-btn" onclick="togglePwd()">
+                <i class="fas fa-eye" id="eyeIcon"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="forgot-wrap">
+            <button type="button" class="forgot-btn" onclick="openForgotModal()">Forgot password?</button>
+          </div>
+        </div>
+
+        <button type="submit" class="submit-btn" id="submitBtn">
+          <i class="fas fa-arrow-right btn-icon"></i>
+          <span class="btn-text">Sign In</span>
+          <div class="spinner"></div>
+        </button>
+
+        <div id="otpStep" class="otp-step">
+          <div class="otp-msg" id="otpStepMessage">Enter OTP sent to your email.</div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">One-Time Password</label>
+            <div class="input-wrap">
+              <input type="text" id="twoFactorCode" class="form-input" placeholder="Enter 6-digit OTP" maxlength="6" autocomplete="one-time-code" />
+              <i class="fas fa-shield-alt input-icon"></i>
+            </div>
+          </div>
+          <div class="otp-actions">
+            <button type="button" class="otp-btn" onclick="exitTwoFactorStep(true)">Back</button>
+            <button type="button" class="otp-btn primary" onclick="verifyTwoFactorCode()">Verify OTP</button>
+          </div>
+        </div>
+
+      </form>
+
+      <div class="card-footer">
+        <span class="secure-pill">
+          <i class="fas fa-shield-halved"></i>
+          Secured Connection
+        </span>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="fp-overlay" id="forgotModal">
+    <div class="fp-card">
+      <div class="fp-title">Reset Password</div>
+      <div class="fp-sub">Verify with email and reset your password</div>
+
+      <div class="fp-msg" id="fpMessage"></div>
+
+      <div class="fp-row">
+        <label class="form-label">Recovery Method</label>
+        <input id="fpMethodDisplay" class="form-input" style="padding-left:14px;" readonly value="Email" />
+        <div class="fp-hint" id="fpMethodHint"></div>
+      </div>
+
+      <div class="fp-row">
+        <label class="form-label" id="fpDestinationLabel">Recovery Destination</label>
+        <input id="fpDestinationDisplay" class="form-input" style="padding-left:14px;" readonly value="Auto-detected from General Settings" />
+      </div>
+
+      <div class="fp-row">
+        <button type="button" class="fp-btn" onclick="sendRecoveryCode()">Send Verification Code</button>
+      </div>
+
+      <div class="fp-row">
+        <label class="form-label">Verification Code</label>
+        <input id="fpCode" class="form-input" style="padding-left:14px;" placeholder="6-digit code" />
+      </div>
+
+      <div class="fp-row">
+        <label class="form-label">New Password</label>
+        <div class="input-wrap">
+          <input id="fpNewPassword" type="password" class="form-input" placeholder="Minimum 8 characters" />
+          <button type="button" class="eye-btn" onclick="toggleRecoveryPwd('fpNewPassword', this)">
+            <i class="fas fa-eye"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="fp-row">
+        <label class="form-label">Confirm Password</label>
+        <div class="input-wrap">
+          <input id="fpConfirmPassword" type="password" class="form-input" placeholder="Re-enter new password" />
+          <button type="button" class="eye-btn" onclick="toggleRecoveryPwd('fpConfirmPassword', this)">
+            <i class="fas fa-eye"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="fp-actions">
+        <button type="button" class="fp-btn" onclick="closeForgotModal()">Cancel</button>
+        <button type="button" class="fp-btn primary" onclick="resetPasswordWithCode()">Reset Password</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let recoveryOptions = {
+      email: { enabled: false, masked: '' },
+      phone: { enabled: false, masked: '', reason: 'Phone recovery is temporarily disabled' }
+    };
+    let twoFactorPending = false;
+
+    // ── Generate floating chat bubbles ──
+    const BUBBLES = ['Hello! 👋', 'How can I help?', '✓✓', 'Hi there!', 'Sure!', '😊', 'Thanks!', 'Got it ✓', 'On it!', 'Roger that!'];
+    const bg = document.getElementById('bg');
+
+    BUBBLES.forEach((text, i) => {
+      const el = document.createElement('div');
+      el.className = `chat-bubble ${i % 2 === 0 ? 'sent' : 'received'}`;
+      el.textContent = text;
+      el.style.cssText = `
+        left: ${5 + Math.random() * 85}%;
+        animation-duration: ${14 + Math.random() * 12}s;
+        animation-delay: ${Math.random() * 14}s;
+        font-size: ${10 + Math.random() * 3}px;
+      `;
+      bg.appendChild(el);
+    });
+
+    // ── Helpers ──
+    function togglePwd() {
+      const inp  = document.getElementById('password');
+      const icon = document.getElementById('eyeIcon');
+      inp.type   = inp.type === 'password' ? 'text' : 'password';
+      icon.className = inp.type === 'password' ? 'fas fa-eye' : 'fas fa-eye-slash';
+    }
+
+    function openForgotModal() {
+      const modal = document.getElementById('forgotModal');
+      if (!modal) return;
+      modal.style.display = 'flex';
+      hideRecoveryMessage();
+      loadRecoveryOptions();
+    }
+
+    function closeForgotModal() {
+      const modal = document.getElementById('forgotModal');
+      if (!modal) return;
+      modal.style.display = 'none';
+    }
+
+    function toggleRecoveryPwd(inputId, btn) {
+      const input = document.getElementById(inputId);
+      if (!input) return;
+      input.type = input.type === 'password' ? 'text' : 'password';
+      const icon = btn?.querySelector('i');
+      if (icon) icon.className = input.type === 'password' ? 'fas fa-eye' : 'fas fa-eye-slash';
+    }
+
+    function showRecoveryMessage(text, isError = false) {
+      const box = document.getElementById('fpMessage');
+      if (!box) return;
+      box.textContent = text;
+      box.className = `fp-msg show ${isError ? 'err' : 'ok'}`;
+    }
+
+    function hideRecoveryMessage() {
+      const box = document.getElementById('fpMessage');
+      if (!box) return;
+      box.className = 'fp-msg';
+      box.textContent = '';
+    }
+
+    function showTwoFactorMessage(text, isError = false) {
+      const box = document.getElementById('errorBox');
+      const textEl = document.getElementById('errorText');
+      if (!box) return;
+      if (textEl) textEl.textContent = text;
+      box.classList.add('show');
+    }
+
+    function hideTwoFactorMessage() {
+      const box = document.getElementById('errorBox');
+      if (!box) return;
+      box.classList.remove('show');
+    }
+
+    function enterTwoFactorStep(maskedDestination = '') {
+      const credentialStep = document.getElementById('credentialStep');
+      const submitBtn = document.getElementById('submitBtn');
+      const otpStep = document.getElementById('otpStep');
+      const otpMsg = document.getElementById('otpStepMessage');
+      const input = document.getElementById('twoFactorCode');
+      const heading = document.querySelector('.card-heading');
+      const sub = document.querySelector('.card-sub');
+
+      twoFactorPending = true;
+      if (credentialStep) credentialStep.classList.add('hidden');
+      if (submitBtn) submitBtn.classList.add('hidden');
+      if (otpStep) otpStep.classList.add('show');
+      if (heading) heading.textContent = 'Two-Factor Authentication';
+      if (sub) sub.textContent = 'Enter OTP to continue';
+
+      if (otpMsg) {
+        otpMsg.textContent = maskedDestination
+          ? `Enter the verification code sent to ${maskedDestination}`
+          : 'Enter the verification code sent to your email';
+      }
+      if (input) input.value = '';
+      hideTwoFactorMessage();
+      if (input) input.focus();
+    }
+
+    function exitTwoFactorStep(clearCode = false) {
+      const credentialStep = document.getElementById('credentialStep');
+      const submitBtn = document.getElementById('submitBtn');
+      const otpStep = document.getElementById('otpStep');
+      const input = document.getElementById('twoFactorCode');
+      const heading = document.querySelector('.card-heading');
+      const sub = document.querySelector('.card-sub');
+
+      twoFactorPending = false;
+      if (credentialStep) credentialStep.classList.remove('hidden');
+      if (submitBtn) submitBtn.classList.remove('hidden');
+      if (otpStep) otpStep.classList.remove('show');
+      if (heading) heading.textContent = 'Welcome back 👋';
+      if (sub) sub.textContent = 'Sign in to access your dashboard';
+      if (clearCode && input) input.value = '';
+      hideTwoFactorMessage();
+    }
+
+    async function verifyTwoFactorCode() {
+      hideTwoFactorMessage();
+      const code = document.getElementById('twoFactorCode')?.value?.trim() || '';
+      if (!code) {
+        showTwoFactorMessage('Please enter verification code.', true);
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/auth/2fa/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || '2FA verification failed');
+        }
+
+        const btn = document.getElementById('submitBtn');
+        if (btn) {
+          btn.classList.remove('loading');
+          btn.classList.add('success');
+          btn.innerHTML = '<i class="fas fa-check"></i> <span>Success!</span>';
+        }
+        setTimeout(() => { window.location.href = '/'; }, 500);
+      } catch (e) {
+        showTwoFactorMessage(e.message || '2FA verification failed', true);
+      }
+    }
+
+    function updateRecoveryPlaceholder() {
+      const label = document.getElementById('fpDestinationLabel');
+      const input = document.getElementById('fpDestinationDisplay');
+      const hint = document.getElementById('fpMethodHint');
+      if (label) label.textContent = 'Email Address';
+      if (input) input.value = recoveryOptions.email?.enabled ? (recoveryOptions.email?.masked || 'Configured') : 'Not configured';
+      if (hint) hint.textContent = recoveryOptions.email?.reason || '';
+    }
+
+    async function loadRecoveryOptions() {
+      try {
+        const res = await fetch('/api/auth/forgot-password/options');
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.success && data.methods) {
+          recoveryOptions = data.methods;
+        }
+      } catch (_) {}
+      updateRecoveryPlaceholder();
+    }
+
+    async function sendRecoveryCode() {
+      hideRecoveryMessage();
+      const method = 'email';
+      if (!recoveryOptions?.email?.enabled) {
+        showRecoveryMessage('Email recovery is not configured in General Settings.', true);
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/auth/forgot-password/send-code', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ method })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || 'Failed to send code');
+        }
+        showRecoveryMessage(data.destinationMasked
+          ? `${data.message || 'Verification code sent.'} (${data.destinationMasked})`
+          : (data.message || 'Verification code sent.'));
+      } catch (e) {
+        showRecoveryMessage(e.message || 'Failed to send code', true);
+      }
+    }
+
+    async function resetPasswordWithCode() {
+      hideRecoveryMessage();
+      const method = 'email';
+      const code = document.getElementById('fpCode')?.value?.trim();
+      const newPassword = document.getElementById('fpNewPassword')?.value || '';
+      const confirm = document.getElementById('fpConfirmPassword')?.value || '';
+
+      if (!code || !newPassword || !confirm) {
+        showRecoveryMessage('Please fill all fields.', true);
+        return;
+      }
+
+      if (newPassword.length < 8) {
+        showRecoveryMessage('Password must be at least 8 characters.', true);
+        return;
+      }
+
+      if (newPassword !== confirm) {
+        showRecoveryMessage('Passwords do not match.', true);
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/auth/forgot-password/reset', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ method, code, newPassword })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || 'Password reset failed');
+        }
+        showRecoveryMessage('Password reset successful. You can login now.');
+        setTimeout(() => closeForgotModal(), 1000);
+      } catch (e) {
+        showRecoveryMessage(e.message || 'Password reset failed', true);
+      }
+    }
+
+    // ── Login ──
+    async function handleLogin(e) {
+      e.preventDefault();
+      if (twoFactorPending) {
+        await verifyTwoFactorCode();
+        return;
+      }
+
+      const btn      = document.getElementById('submitBtn');
+      const errorBox = document.getElementById('errorBox');
+      const card     = document.getElementById('loginCard');
+
+      btn.classList.add('loading');
+      errorBox.classList.remove('show');
+
+      try {
+        const res  = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: document.getElementById('username').value.trim(),
+            password: document.getElementById('password').value
+          })
+        });
+        const data = await res.json();
+
+        if (res.ok && data.success && data.requires2fa) {
+          btn.classList.remove('loading');
+          enterTwoFactorStep(data.destinationMasked || '');
+        } else if (res.ok && data.success) {
+          btn.classList.remove('loading');
+          btn.classList.add('success');
+          btn.innerHTML = '<i class="fas fa-check"></i> <span>Success!</span>';
+          setTimeout(() => { window.location.href = '/'; }, 700);
+        } else {
+          btn.classList.remove('loading');
+          document.getElementById('errorText').textContent = data.error || 'Invalid username or password';
+          errorBox.classList.add('show');
+          card.classList.add('shake');
+          setTimeout(() => card.classList.remove('shake'), 400);
+          document.getElementById('password').value = '';
+          document.getElementById('password').focus();
+        }
+      } catch {
+        btn.classList.remove('loading');
+        document.getElementById('errorText').textContent = 'Connection error. Please try again.';
+        errorBox.classList.add('show');
+      }
+    }
+
+    document.getElementById('username').focus();
+
+    document.getElementById('forgotModal')?.addEventListener('click', (e) => {
+      if (e.target?.id === 'forgotModal') closeForgotModal();
+    });
+    document.getElementById('twoFactorCode')?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        verifyTwoFactorCode();
+      }
+    });
+  </script>
+
+</body>
+</html>

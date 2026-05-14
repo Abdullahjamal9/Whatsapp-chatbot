@@ -1,0 +1,7 @@
+{
+  "enableAutoReply": true,
+  "welcomeMessage": "Welcome to PTIS 👋  \nPremier Tubular Inspection Services\n\nHow can we help you today?\n\n1️⃣ View our services  \n2️⃣ Book an inspection  \n3️⃣ Contact our team",
+  "awayMessage": "We are currently offline.\n\nOur working hours are:\nMonday – Friday (9:00 AM – 5:30 PM)\n\nPlease leave your message and our team will get back to you shortly.",
+  "responseDelaySeconds": 2,
+  "updatedAt": "2026-04-24T08:04:14.351Z"
+}
