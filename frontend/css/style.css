@@ -2705,6 +2705,59 @@ body {
   font-size: 12px;
 }
 
+/* Meetings table: compact spacing to match 80% zoom look */
+.meetings-table th,
+.meetings-table td {
+  padding: 10px 14px;
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.meetings-table th {
+  font-size: 11px;
+}
+
+.meetings-table .meeting-slot-main {
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.meetings-table .meeting-slot-sub {
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.meetings-table .meeting-client-name {
+  font-size: 13px;
+}
+
+.meetings-table .meeting-client-phone,
+.meetings-table .meeting-host-email {
+  font-size: 11px;
+}
+
+.meetings-table .meeting-status-badge {
+  min-width: 72px;
+  padding: 5px 8px;
+  font-size: 10px;
+}
+
+.meetings-table .meeting-link-btn {
+  padding: 6px 8px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.meetings-table td:nth-child(8) {
+  white-space: nowrap;
+}
+
+.meetings-table .meeting-action-buttons .btn-task-action {
+  width: 26px;
+  height: 26px;
+  font-size: 11px;
+}
+
 @media (max-width: 1200px) {
   .meeting-slot-check-row {
     grid-template-columns: 1fr 120px;
@@ -4999,6 +5052,13 @@ body {
 
 .profiles-table td {
   font-size: 14px;
+}
+
+.profiles-table .profile-serial {
+  width: 60px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-weight: 600;
 }
 
 .table-action {

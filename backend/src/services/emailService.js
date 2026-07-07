@@ -40,6 +40,7 @@ function normalizeEmail(value = '') {
   return v;
 }
 
+
 function getAdminMeetingRecipient() {
   try {
     if (fs.existsSync(GENERAL_SETTINGS_PATH)) {

@@ -4,10 +4,10 @@
   "intervalMinutes": 360,
   "maxPages": 30,
   "maxChars": 8000,
-  "lastSyncAt": "2026-05-14T05:21:14.542Z",
+  "lastSyncAt": "2026-06-01T10:32:40.078Z",
   "lastPageCount": 23,
   "lastError": null,
   "lastErrorAt": null,
   "lastContentHash": "79dd55cdc4e3502c1bec1f31609a7d16f8420dc47386c69a9a718013d3e3410f",
-  "updatedAt": "2026-05-14T05:21:14.542Z"
+  "updatedAt": "2026-06-01T10:32:40.083Z"
 }

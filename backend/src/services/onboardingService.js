@@ -101,11 +101,10 @@ function isSkipEmailMessage(text = '') {
   );
 }
 
-function isResumeMessage(text = '') {
+function isContinueMessage(text = '') {
   const t = String(text || '').toLowerCase();
   return (
     t.includes('continue') ||
-    t.includes('resume') ||
     t.includes('start again') ||
     t.includes('let\'s continue') ||
     t.includes('lets continue') ||
@@ -394,7 +393,7 @@ async function processOnboarding(phoneNumber, messageText) {
     return { response: QUESTIONS.asking_name, done: false };
   }
 
-  // ── Resume state after bot restart (in-memory lost) ───────────────────────
+  // ── Restore state after bot restart (in-memory lost) ──────────────────────
   let state = states.get(phoneNumber);
   if (!state) {
     if (!profile.name)              state = 'asking_name';
@@ -415,7 +414,7 @@ async function processOnboarding(phoneNumber, messageText) {
   const snoozedUntil = onboardingSnoozeUntil.get(phoneNumber) || 0;
   if (Date.now() < snoozedUntil) {
     const txt = String(messageText || '').trim();
-    if (isResumeMessage(txt)) {
+    if (isContinueMessage(txt)) {
       onboardingSnoozeUntil.delete(phoneNumber);
       return {
         response: `Great 👍 Let's continue.\n\n${getQuestionForState(state, profile)}`,

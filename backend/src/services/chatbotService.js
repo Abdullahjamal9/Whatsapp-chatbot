@@ -631,7 +631,8 @@ class ChatbotService {
 
     let prompt = `You are an AI customer service representative for "${name}" (${type}).\n`;
     prompt += `Tone: ${toneGuide}\n`;
-    prompt += `Always reply in ${lang}.\n\n`;
+    prompt += `Always reply in ${lang}.\n`;
+    prompt += `If the customer writes in another language, still respond only in ${lang}.\n\n`;
 
     if (!useWebsiteOnly && profile.services && profile.services.trim()) {
       prompt += `=== SERVICES WE OFFER ===\n${profile.services.trim()}\n\n`;

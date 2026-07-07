@@ -3451,10 +3451,25 @@ function exportAllData() {
 }
 
 // Load customer profiles for dashboard table
+function sortProfilesAsc(profiles) {
+  return profiles.slice().sort((a, b) => {
+    const aId = Number(a?.id);
+    const bId = Number(b?.id);
+    const aValid = Number.isFinite(aId);
+    const bValid = Number.isFinite(bId);
+    if (aValid && bValid) return aId - bId;
+    if (aValid) return -1;
+    if (bValid) return 1;
+    const aTime = new Date(a?.updatedAt || a?.createdAt || 0).getTime();
+    const bTime = new Date(b?.updatedAt || b?.createdAt || 0).getTime();
+    return aTime - bTime;
+  });
+}
+
 async function loadDashboardProfiles() {
   const tbody = document.getElementById('dashboardProfilesBody');
   if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-secondary);padding:14px;">Loading profiles...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-secondary);padding:14px;">Loading profiles...</td></tr>';
   try {
     const res = await fetch('/api/user-profiles');
     const data = await res.json();
@@ -3462,19 +3477,22 @@ async function loadDashboardProfiles() {
     const profiles = data.profiles || [];
 
     if (!profiles.length) {
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-secondary);padding:14px;">No profiles collected yet.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-secondary);padding:14px;">No profiles collected yet.</td></tr>';
       return;
     }
 
     const fmt = (val) => val ? timeAgo(val) : '—';
-    profileCache = profiles;
-    tbody.innerHTML = profiles.slice(0, 5).map(p => {
+    const sortedProfiles = sortProfilesAsc(profiles);
+    profileCache = sortedProfiles;
+    tbody.innerHTML = sortedProfiles.slice(0, 5).map((p, idx) => {
+      const serial = idx + 1;
       const name = escapeHtml(p.name || '—');
       const designation = escapeHtml(p.designation || '—');
       const phone = escapeHtml(p.contactPhone || p.phoneNumber || '—');
       const email = escapeHtml(p.email || '—');
       const updated = fmt(p.updatedAt);
       return `<tr>
+        <td class="profile-serial">${serial}</td>
         <td>${name}</td>
         <td>${designation}</td>
         <td>${phone}</td>
@@ -3490,7 +3508,7 @@ async function loadDashboardProfiles() {
     }).join('');
   } catch (err) {
     console.error('Dashboard profiles load error', err);
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--accent-red);padding:14px;">Failed to load profiles</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--accent-red);padding:14px;">Failed to load profiles</td></tr>';
     showNotification('❌ Failed to load profiles', 'error');
   }
 }
@@ -3499,14 +3517,15 @@ async function loadDashboardProfiles() {
 async function loadUserProfiles() {
   const tbody = document.getElementById('profilesTableBody');
   if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-secondary);padding:14px;">Loading profiles...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-secondary);padding:14px;">Loading profiles...</td></tr>';
   try {
     const res = await fetch('/api/user-profiles');
     const data = await res.json();
     if (!res.ok || !data.success) throw new Error(data.error || 'Failed to load profiles');
     const profiles = data.profiles || [];
-    profileCache = profiles;
-    _profileTotalCount = profiles.length;
+    const sortedProfiles = sortProfilesAsc(profiles);
+    profileCache = sortedProfiles;
+    _profileTotalCount = sortedProfiles.length;
 
     const totalEl = document.getElementById('profileTotalCount');
     const lastUpdatedEl = document.getElementById('profileLastUpdated');
@@ -3520,8 +3539,8 @@ async function loadUserProfiles() {
       lastUpdatedEl.textContent = latest ? timeAgo(latest) : '—';
     }
 
-    if (!profiles.length) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-secondary);padding:14px;">No profiles collected yet.</td></tr>';
+    if (!sortedProfiles.length) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-secondary);padding:14px;">No profiles collected yet.</td></tr>';
       renderProfilePagination();
       return;
     }
@@ -3529,16 +3548,18 @@ async function loadUserProfiles() {
     // Paginate profiles
     const start = (_profileCurrentPage - 1) * _profilePerPage;
     const end = start + _profilePerPage;
-    const pagedProfiles = profiles.slice(start, end);
+    const pagedProfiles = sortedProfiles.slice(start, end);
 
     const fmt = (val) => val ? timeAgo(val) : '—';
-    tbody.innerHTML = pagedProfiles.map(p => {
+    tbody.innerHTML = pagedProfiles.map((p, idx) => {
+      const serial = start + idx + 1;
       const name = escapeHtml(p.name || '—');
       const designation = escapeHtml(p.designation || '—');
       const phone = escapeHtml(p.contactPhone || p.phoneNumber || '—');
       const email = escapeHtml(p.email || '—');
       const updated = fmt(p.updatedAt);
       return `<tr>
+        <td class="profile-serial">${serial}</td>
         <td>${name}</td>
         <td>${designation}</td>
         <td>${phone}</td>
@@ -3556,7 +3577,7 @@ async function loadUserProfiles() {
     renderProfilePagination();
   } catch (err) {
     console.error('Profiles load error', err);
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--accent-red);padding:14px;">Failed to load profiles</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--accent-red);padding:14px;">Failed to load profiles</td></tr>';
     showNotification('❌ Failed to load profiles', 'error');
   }
 }
