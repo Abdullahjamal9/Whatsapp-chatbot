@@ -3,6 +3,7 @@
   "displayName": "PTIS Chatbot Support",
   "phone": "+92 329 2201880",
   "email": "info@premiertubular.com",
+  "hrEmail": "abdullah.jamal@premiertubular.com",
   "headOfficeAddress": "E-69, Block # 6 P.E.C.H., Imam Ahmed Road, Karachi, Pakistan",
   "regionalOffices": [
     {
@@ -77,5 +78,5 @@
   "theme": "auto",
   "accentColor": "#25d366",
   "compactMode": false,
-  "updatedAt": "2026-05-21T07:23:02.042Z"
+  "updatedAt": "2026-07-17T10:46:54.902Z"
 }

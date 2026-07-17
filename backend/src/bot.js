@@ -14,6 +14,7 @@ const onboardingService = require('./services/onboardingService');
 const emailService      = require('./services/emailService');
 const meetingService    = require('./services/meetingService');
 const lidPhoneMap       = require('./utils/lidPhoneMap');
+const mediaDownloader   = require('./utils/mediaDownloader');
 
 // Connect to database
 connectDB();
@@ -41,6 +42,85 @@ function cancelInactivityTimer(phoneNumber) {
     clearTimeout(inactivityTimers.get(phoneNumber));
     inactivityTimers.delete(phoneNumber);
   }
+}
+
+// ── Resume/CV awaiting a stated position ─────────────────────────────────────
+// A document arrives without a position mentioned → we hold onto the
+// downloaded file and ask; the client's next text reply is treated as the
+// position, and only then do we email the resume to business + HR.
+const pendingResumes = new Map();
+const PENDING_RESUME_TTL_MS = 30 * 60 * 1000; // 30 minutes
+
+function rememberPendingResume(phoneNumber, data) {
+  pendingResumes.set(phoneNumber, { ...data, expiresAt: Date.now() + PENDING_RESUME_TTL_MS });
+}
+
+function hasPendingResume(phoneNumber) {
+  const entry = pendingResumes.get(phoneNumber);
+  if (!entry) return false;
+  if (Date.now() > entry.expiresAt) {
+    pendingResumes.delete(phoneNumber);
+    return false;
+  }
+  return true;
+}
+
+function consumePendingResume(phoneNumber) {
+  const entry = pendingResumes.get(phoneNumber);
+  pendingResumes.delete(phoneNumber);
+  if (!entry || Date.now() > entry.expiresAt) return null;
+  return entry;
+}
+
+// Get a message's media, working around the broken library download.
+// PRIMARY: download the encrypted file from WhatsApp's CDN and decrypt it
+// ourselves in Node (see utils/mediaDownloader) — this bypasses the buggy
+// in-browser downloadAndMaybeDecrypt entirely.
+// FALLBACK: the library's msg.downloadMedia() (in case the message is missing
+// the directPath/mediaKey fields the manual path needs).
+async function fetchMessageMedia(msg) {
+  try {
+    const media = await mediaDownloader.fetchMediaFromMessage(msg);
+    if (media?.data) {
+      console.log(`📎 Media fetched via direct download+decrypt (${media.filename})`);
+      return media;
+    }
+  } catch (manualErr) {
+    const d = msg?._data || {};
+    console.warn('⚠️ Direct media download failed, trying library method:', manualErr?.message || String(manualErr),
+      '| fields present →', `directPath:${!!(d.directPath || msg.directPath)}`, `mediaKey:${!!(d.mediaKey || msg.mediaKey)}`, `type:${msg.type}`);
+  }
+
+  try {
+    const media = await msg.downloadMedia();
+    if (media?.data) return media;
+  } catch (libErr) {
+    console.error('⚠️ Library downloadMedia also failed:', libErr?.message || String(libErr));
+  }
+  return null;
+}
+
+// Download (best effort) and deliver a resume: attach it to the email if the
+// download works, otherwise send a notify-only email so HR still gets the
+// name/phone/position and can open WhatsApp to grab the file manually.
+// Returns 'attached' | 'notified' | 'failed'.
+async function deliverResume({ msg, fromName, phoneNumber, position }) {
+  const media = await fetchMessageMedia(msg);
+
+  if (media?.data) {
+    const ok = await emailService.sendResumeSubmission({
+      fromName,
+      phoneNumber,
+      filename: media.filename || 'document',
+      mimetype: media.mimetype,
+      base64Data: media.data,
+      position
+    });
+    return ok ? 'attached' : 'failed';
+  }
+
+  const ok = await emailService.sendResumeNotification({ fromName, phoneNumber, position });
+  return ok ? 'notified' : 'failed';
 }
 
 function resolveOnboardingLookupPhone(msgFrom, contact) {
@@ -295,9 +375,7 @@ setInterval(async () => {
   }
 }, HEALTH_CHECK_INTERVAL_MS);
 
-// Handle incoming messages. Extracted into a named function (rather than an
-// inline listener) so the polling fallback below can reuse the exact same
-// logic for messages whose 'message' event never fired live.
+// Handle incoming messages.
 async function handleIncomingMessage(msg) {
   lastMessageActivityAt = Date.now();
   try {
@@ -356,6 +434,69 @@ async function handleIncomingMessage(msg) {
     }
     const fromName = msgContact?.pushname || msgContact?.name || msg._data?.notifyName || 'there';
     const lookupPhone = resolveOnboardingLookupPhone(msg.from, msgContact);
+
+    // ── Reply to a pending resume: this text is the stated position ─────────
+    // Runs before onboarding/AI so a plain "Inspector" reply after a resume
+    // isn't swallowed by the onboarding flow or misread by the chatbot.
+    if (!msg.hasMedia && hasPendingResume(lookupPhone)) {
+      const position = String(msg.body || '').trim();
+      if (!position) {
+        const ask = 'Could you please tell me which position you are applying for?';
+        try { await msg.reply(ask); }
+        catch (e) { await sendWithRecovery(() => client.sendMessage(msg.from, ask), 'resume position ask'); }
+        return;
+      }
+
+      const pending = consumePendingResume(lookupPhone);
+      const result = await deliverResume({
+        msg: pending.msg,
+        fromName,
+        phoneNumber: lookupPhone,
+        position
+      });
+      const ack = result === 'attached'
+        ? `Thank you! Your resume for the *${position}* position has been forwarded to our team.`
+        : `Thank you! Your details for the *${position}* position have been shared with our team.`;
+      try { await msg.reply(ack); }
+      catch (e) { await sendWithRecovery(() => client.sendMessage(msg.from, ack), 'resume ack'); }
+      return;
+    }
+
+    // ── Document shared (e.g. a resume/CV) → ask position, then forward ─────
+    // Runs before onboarding so a resume is never missed just because the
+    // client hasn't finished the onboarding questions yet.
+    if (msg.hasMedia && msg.type === 'document') {
+      // Decide the position from the CAPTION alone — no download needed. When a
+      // client attaches a document without typing anything, WhatsApp often
+      // echoes the filename into the caption, so a caption that looks like a
+      // filename is NOT a real stated position.
+      const docFilename = msg._data?.filename || '';
+      const caption = String(msg.body || '').trim();
+      const captionIsFilename =
+        (docFilename && caption.toLowerCase() === docFilename.toLowerCase()) ||
+        /\.(pdf|docx?|rtf|odt|txt|pptx?|xlsx?)$/i.test(caption);
+      const statedPosition = (caption && !captionIsFilename) ? caption : '';
+
+      if (statedPosition) {
+        // Position already given → deliver right away.
+        const result = await deliverResume({ msg, fromName, phoneNumber: lookupPhone, position: statedPosition });
+        const ack = result === 'attached'
+          ? `Thank you! Your resume for the *${statedPosition}* position has been forwarded to our team.`
+          : `Thank you! Your details for the *${statedPosition}* position have been shared with our team.`;
+        try { await msg.reply(ack); }
+        catch (e) { await sendWithRecovery(() => client.sendMessage(msg.from, ack), 'document ack'); }
+        return;
+      }
+
+      // No position stated → keep the message so we can deliver once they tell
+      // us which role, then ask. (We store the message object itself, so the
+      // actual download is attempted at delivery time.)
+      rememberPendingResume(lookupPhone, { msg });
+      const ask = 'Thanks for sharing your resume! Which position are you applying for?';
+      try { await msg.reply(ask); }
+      catch (e) { await sendWithRecovery(() => client.sendMessage(msg.from, ask), 'resume position ask'); }
+      return;
+    }
 
     // ── Onboarding: collect name / designation / phone / email ───────────────
     // processOnboarding returns { response, done } while collecting info,

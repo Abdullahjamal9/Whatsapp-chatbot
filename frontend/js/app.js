@@ -4688,6 +4688,7 @@ const GENERAL_DEFAULTS = {
   displayName: 'PTIS Chatbot Support',
   phone: '+92 300 1234567',
   email: 'support@ptischatbot.com',
+  hrEmail: '',
   headOfficeAddress: '',
   regionalOffices: [],
   timezone: 'GMT',
@@ -5024,6 +5025,7 @@ async function loadGeneralSettings() {
   set('generalDisplayName', s.displayName);
   set('generalPhone', s.phone);
   set('generalEmail', s.email);
+  set('generalHrEmail', s.hrEmail);
   set('generalHeadOfficeAddress', s.headOfficeAddress);
   set('generalTimezone', s.timezone);
 
@@ -5224,6 +5226,7 @@ async function saveSettings(section) {
       displayName: get('generalDisplayName').trim(),
       phone: get('generalPhone').trim(),
       email: get('generalEmail').trim(),
+      hrEmail: get('generalHrEmail').trim(),
       headOfficeAddress: get('generalHeadOfficeAddress').trim(),
       regionalOffices: getRegionalOfficesFromForm(),
       timezone: get('generalTimezone').trim(),

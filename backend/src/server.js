@@ -100,6 +100,7 @@ const GENERAL_SETTINGS_DEFAULTS = {
   displayName: 'PTIS Chatbot Support',
   phone: '+92 300 1234567',
   email: 'support@ptischatbot.com',
+  hrEmail: '',
   headOfficeAddress: '',
   regionalOffices: [],
   timezone: 'GMT',
@@ -289,6 +290,9 @@ function writeGeneralSettings(settings = {}) {
     email: typeof settings.email === 'string' && settings.email.trim()
       ? settings.email.trim().slice(0, 160)
       : GENERAL_SETTINGS_DEFAULTS.email,
+    hrEmail: typeof settings.hrEmail === 'string' && settings.hrEmail.trim()
+      ? settings.hrEmail.trim().slice(0, 160)
+      : GENERAL_SETTINGS_DEFAULTS.hrEmail,
     headOfficeAddress: typeof settings.headOfficeAddress === 'string' && settings.headOfficeAddress.trim()
       ? settings.headOfficeAddress.trim().slice(0, 300)
       : GENERAL_SETTINGS_DEFAULTS.headOfficeAddress,

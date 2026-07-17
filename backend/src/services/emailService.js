@@ -194,6 +194,116 @@ async function sendConversationHistory(userProfile) {
   }
 }
 
+function getHrRecipient() {
+  try {
+    if (fs.existsSync(GENERAL_SETTINGS_PATH)) {
+      const settings = JSON.parse(fs.readFileSync(GENERAL_SETTINGS_PATH, 'utf8')) || {};
+      return normalizeEmail(settings.hrEmail || '');
+    }
+  } catch (e) {
+    console.error('Could not read general settings for HR email:', e.message);
+  }
+  return '';
+}
+
+/**
+ * Forward a document a client shared on WhatsApp (e.g. a resume/CV) to the
+ * business email and, if configured, the HR email — as an attachment, with
+ * the client's contact details in the body.
+ */
+async function sendResumeSubmission({ fromName, phoneNumber, filename, mimetype, base64Data, position }) {
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    console.log('⚠️  Email not configured (SMTP_USER/SMTP_PASS missing) — skipping resume forward');
+    return false;
+  }
+
+  const businessEmail = getAdminMeetingRecipient();
+  const hrEmail = getHrRecipient();
+  const recipients = [...new Set([businessEmail, hrEmail].filter(Boolean))];
+  if (!recipients.length) {
+    console.log('⚠️  No business/HR email configured — skipping resume forward');
+    return false;
+  }
+
+  const transporter = createTransporter();
+  const botName = process.env.BRAND_NAME || process.env.BOT_NAME || 'PTIS Chatbot';
+  const subject = position
+    ? `New resume received via WhatsApp — ${escapeHtml(fromName || phoneNumber)} (${escapeHtml(position)})`
+    : `New document received via WhatsApp — ${escapeHtml(fromName || phoneNumber)}`;
+  const html = `<!doctype html><html><body>
+    <p>A document was shared on WhatsApp — forwarding in case it's a resume/CV.</p>
+    <ul>
+      <li>Name: ${escapeHtml(fromName || '—')}</li>
+      <li>Phone: ${escapeHtml(phoneNumber || '—')}</li>
+      ${position ? `<li>Position applied for: ${escapeHtml(position)}</li>` : ''}
+      <li>File: ${escapeHtml(filename || 'attachment')}</li>
+      <li>Received: ${escapeHtml(formatDate(new Date()))}</li>
+    </ul>
+  </body></html>`;
+
+  try {
+    await transporter.sendMail({
+      from: `"${botName}" <${process.env.SMTP_USER}>`,
+      to: recipients.join(', '),
+      subject,
+      html,
+      attachments: [{
+        filename: filename || 'document',
+        content: Buffer.from(base64Data, 'base64'),
+        contentType: mimetype || 'application/octet-stream'
+      }]
+    });
+    console.log(`📧 Document forwarded to ${recipients.join(', ')}`);
+    return true;
+  } catch (err) {
+    console.error('❌ Resume forward failed:', err.message);
+    return false;
+  }
+}
+
+/**
+ * Fallback for when WhatsApp's own media download fails (a known,
+ * unresolved issue in the whatsapp-web.js library — not something in our
+ * control). We can't attach the file, so instead we alert business/HR that a
+ * document is waiting in the WhatsApp conversation for manual follow-up.
+ */
+async function sendResumeNotification({ fromName, phoneNumber, position }) {
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) return false;
+
+  const businessEmail = getAdminMeetingRecipient();
+  const hrEmail = getHrRecipient();
+  const recipients = [...new Set([businessEmail, hrEmail].filter(Boolean))];
+  if (!recipients.length) return false;
+
+  const transporter = createTransporter();
+  const botName = process.env.BRAND_NAME || process.env.BOT_NAME || 'PTIS Chatbot';
+  const subject = `Client shared a document via WhatsApp — ${escapeHtml(fromName || phoneNumber)}`;
+  const html = `<!doctype html><html><body>
+    <p>A client shared a document on WhatsApp (possibly a resume/CV), but it could not be
+    downloaded automatically. Please open the WhatsApp conversation to view it directly.</p>
+    <ul>
+      <li>Name: ${escapeHtml(fromName || '—')}</li>
+      <li>Phone: ${escapeHtml(phoneNumber || '—')}</li>
+      ${position ? `<li>Position applied for: ${escapeHtml(position)}</li>` : ''}
+      <li>Received: ${escapeHtml(formatDate(new Date()))}</li>
+    </ul>
+  </body></html>`;
+
+  try {
+    await transporter.sendMail({
+      from: `"${botName}" <${process.env.SMTP_USER}>`,
+      to: recipients.join(', '),
+      subject,
+      html
+    });
+    console.log(`📧 Resume notify-only email sent to ${recipients.join(', ')}`);
+    return true;
+  } catch (err) {
+    console.error('❌ Resume notification failed:', err.message);
+    return false;
+  }
+}
+
 async function sendMeetingConfirmation(userProfile, meeting) {
   if (!process.env.SMTP_USER || !process.env.SMTP_PASS) return false;
   if (!userProfile || !userProfile.email) return false;
@@ -270,5 +380,7 @@ module.exports = {
   sendConversationHistory,
   sendMeetingConfirmation,
   sendAdminMeetingNotification,
-  sendMeetingNotifications
+  sendMeetingNotifications,
+  sendResumeSubmission,
+  sendResumeNotification
 };

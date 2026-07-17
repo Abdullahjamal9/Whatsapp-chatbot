@@ -35,7 +35,7 @@
     "sentiment": "^5.0.2",
     "sequelize": "^6.37.7",
     "socket.io": "^4.6.1",
-    "whatsapp-web.js": "^1.23.0"
+    "whatsapp-web.js": "^1.34.7"
   },
   "devDependencies": {
     "nodemon": "^3.0.2",
