@@ -28,6 +28,17 @@ const CONFIRM_KEYWORDS = [
   'confirm hai', 'confirm he'
 ];
 
+// Natural agreement words. These only count as a confirmation when the bot has
+// already proposed a specific slot, so the client doesn't have to type the
+// literal word "confirm" to finalize a meeting.
+const SOFT_AGREEMENT_KEYWORDS = [
+  'ok', 'okay', 'okey', 'yes', 'yeah', 'yep', 'yup', 'sure', 'fine',
+  'great', 'perfect', 'sounds good', 'go ahead', 'book it', 'lets do it',
+  'let\'s do it', 'agreed', 'accept', 'accepted',
+  'haan', 'han', 'ji', 'ji haan', 'theek', 'theek hai', 'thik', 'thik hai',
+  'acha', 'accha', 'chalega', 'sahi', 'bilkul', 'kardo', 'kar do', 'krdo'
+];
+
 const AVAILABILITY_KEYWORDS = [
   'available', 'availability', 'free', 'open', 'booked',
   'khali', 'khaali', 'empty', 'slot available', 'time available'
@@ -366,7 +377,7 @@ async function getRecentConversation(phoneNumber, limit = 12) {
   });
 }
 
-async function resolveSlotStart(phoneNumber, messageBody) {
+async function resolveSlotStart(phoneNumber, messageBody, { allowFallback = true } = {}) {
   const now = new Date();
 
   const fromCurrentMessage = parseSlotDateTime(messageBody, {
@@ -374,6 +385,12 @@ async function resolveSlotStart(phoneNumber, messageBody) {
     requireDateSignal: false
   });
   if (fromCurrentMessage) return fromCurrentMessage;
+
+  // Only fall back to an earlier offered slot or scan old messages when the
+  // client is actually trying to confirm/continue a specific booking. A brand
+  // new, generic message (e.g. "is a meeting possible?") has no time of its
+  // own and should NOT silently inherit a stale slot from days/weeks ago.
+  if (!allowFallback) return null;
 
   const fromPendingSlot = consumePendingSlot(phoneNumber);
   if (fromPendingSlot) return fromPendingSlot;
@@ -444,6 +461,12 @@ async function isMeetingConfirmationIntent(normalizedText, phoneNumber) {
 
   const recent = await getRecentConversation(phoneNumber, 6);
   return recent.some((msg) => hasAny(normalizeText(msg.body || ''), MEETING_KEYWORDS));
+}
+
+function isSoftAgreement(normalizedText) {
+  if (!normalizedText) return false;
+  if (hasAny(normalizedText, NEGATION_KEYWORDS)) return false;
+  return hasAny(normalizedText, SOFT_AGREEMENT_KEYWORDS);
 }
 
 function isMeetingAvailabilityIntent(normalizedText) {
@@ -528,6 +551,12 @@ async function maybeHandleMeetingMessage({ phoneNumber, fromName, messageBody, m
     }
   }
 
+  // If we already proposed a specific slot, a plain "ok / yes / haan / theek hai"
+  // is enough to finalize — no need for the client to type the word "confirm".
+  if (!confirmationIntent && pendingSlotExists && isSoftAgreement(normalized)) {
+    confirmationIntent = true;
+  }
+
   if (!availabilityIntent && !confirmationIntent) {
     if (emailCapture.updated && pendingSlotExists) {
       return {
@@ -538,7 +567,9 @@ async function maybeHandleMeetingMessage({ phoneNumber, fromName, messageBody, m
     return { handled: false };
   }
 
-  const slotStart = await resolveSlotStart(phoneNumber, messageBody);
+  const slotStart = await resolveSlotStart(phoneNumber, messageBody, {
+    allowFallback: confirmationIntent || pendingSlotRequest
+  });
   if (!slotStart) {
     rememberPendingSlotRequest(phoneNumber);
     return {

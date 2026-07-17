@@ -29,7 +29,7 @@ const CURATED_KEYWORD_DICTIONARY = [
 
   // Trust / Loyalty
   { keyword: 'thank you', category: 'loyalty_signal', sentiment: 'positive', aliases: ['thanks', 'shukriya', 'shukria'] },
-  { keyword: 'satisfied', category: 'loyalty_signal', sentiment: 'positive', aliases: ['happy', 'content', 'khush'] },
+  { keyword: 'satisfied', category: 'loyalty_signal', sentiment: 'positive', aliases: ['happy', 'khush'] },
   { keyword: 'recommend', category: 'loyalty_signal', sentiment: 'positive', aliases: ['refer', 'suggest'] },
   { keyword: 'trust', category: 'loyalty_signal', sentiment: 'positive', aliases: ['reliable', 'dependable'] },
   { keyword: 'excellent', category: 'loyalty_signal', sentiment: 'positive', aliases: ['amazing', 'great', 'awesome', 'behtareen', 'zabardast'] }

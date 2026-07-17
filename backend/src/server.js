@@ -22,7 +22,7 @@ const {
   runWebsiteSync,
   startWebsiteSyncScheduler
 } = require('./services/websiteSyncService');
-const { findDictionaryTerm, matchDictionaryTermsInText } = require('./utils/keywordDictionary');
+const { findDictionaryTerm, matchDictionaryTermsInText, normalizeText: normalizeKeywordText } = require('./utils/keywordDictionary');
 
 const ALLOWED_TABLES = {
   messages: Message,
@@ -1885,7 +1885,12 @@ app.get('/api/messages', async (req, res) => {
     const from = req.query.from || '';
     const startDate = req.query.startDate || '';
     const endDate = req.query.endDate || '';
-    
+    // Conversation-list mode: one row per contact (their latest message),
+    // instead of a flat log with a separate row per message. Used by the
+    // Messages page so a contact who sends several messages updates the same
+    // card instead of appearing as multiple stacked cards.
+    const grouped = req.query.grouped === 'true';
+
     // Build where clause — always exclude bot replies (to IS NOT NULL means bot sent it)
     const where = { to: null };
     
@@ -1911,16 +1916,41 @@ app.get('/api/messages', async (req, res) => {
       where.timestamp = { [Op.lte]: new Date(endDate) };
     }
     
-    // Get total count for pagination
-    const totalCount = await Message.count({ where });
-    
-    // Fetch messages
-    const messages = await Message.findAll({
-      where,
-      order: [['timestamp', 'DESC']],
-      limit,
-      offset
-    });
+    let totalCount, messages;
+
+    if (grouped) {
+      // One row per contact — group by `from`, keep only their latest message
+      // (highest id, which also matches the highest timestamp), ordered by
+      // recency. Pagination (limit/offset) applies per-contact, not per-message.
+      const latestRows = await Message.findAll({
+        attributes: ['from', [sequelize.fn('MAX', sequelize.col('id')), 'maxId']],
+        where,
+        group: ['from'],
+        order: [[sequelize.fn('MAX', sequelize.col('timestamp')), 'DESC']],
+        limit,
+        offset,
+        raw: true
+      });
+      const ids = latestRows.map(r => r.maxId).filter(Boolean);
+
+      const distinctContacts = await Message.count({ where, distinct: true, col: 'from' });
+      totalCount = distinctContacts;
+
+      messages = ids.length
+        ? await Message.findAll({ where: { id: { [Op.in]: ids } }, order: [['timestamp', 'DESC']] })
+        : [];
+    } else {
+      // Get total count for pagination
+      totalCount = await Message.count({ where });
+
+      // Fetch messages
+      messages = await Message.findAll({
+        where,
+        order: [['timestamp', 'DESC']],
+        limit,
+        offset
+      });
+    }
     
     // Format messages for frontend
     const formattedMessages = messages.map(msg => ({
@@ -2224,6 +2254,7 @@ app.get('/api/sentiment/keywords', async (req, res) => {
 
     const messages = await Message.findAll({
       where: {
+        to: null, // customer (incoming) messages only — don't count the bot's own replies
         timestamp: { [Op.gte]: start }
       },
       attributes: ['body', 'sentimentLabel'],
@@ -2398,23 +2429,31 @@ app.get('/api/sentiment/messages-by-keyword', async (req, res) => {
       ? [dictionaryTerm.keyword, ...(dictionaryTerm.aliases || [])]
       : [keyword];
 
-    const orClauses = [...new Set(variants.filter(Boolean))].map(v => ({
-      body: { [Op.like]: `%${v}%` }
-    }));
+    // Normalize variants the same way the aggregate does, so matching is consistent.
+    const normVariants = [...new Set(variants.map(v => normalizeKeywordText(v)).filter(Boolean))];
+    if (!normVariants.length) {
+      return res.json({ count: 0, messages: [] });
+    }
 
-    const where = { [Op.or]: orClauses };
-
-    // Get count first
-    const count = await Message.count({
-      where
-    });
-
-    const messages = await Message.findAll({
-      where,
+    // Coarse DB prefilter (customer messages only), then an exact whole-word
+    // filter in JS so "na" doesn't match "banana" and "book" doesn't match
+    // "facebook". Only messages where a variant appears as a standalone word survive.
+    const orClauses = normVariants.map(v => ({ body: { [Op.like]: `%${v}%` } }));
+    const candidates = await Message.findAll({
+      where: { to: null, [Op.or]: orClauses },
       attributes: ['id', 'fromName', 'from', 'to', 'body', 'timestamp', 'sentimentLabel', 'sentimentComparative'],
       order: [['timestamp', 'DESC']],
-      limit: 500
+      limit: 1000
     });
+
+    const matchesWholeWord = (body) => {
+      const haystack = ` ${normalizeKeywordText(body)} `;
+      return normVariants.some(v => haystack.includes(` ${v} `));
+    };
+
+    const filtered = candidates.filter(m => matchesWholeWord(m.body));
+    const count = filtered.length;
+    const messages = filtered.slice(0, 500);
 
     // Build phone -> conversation name map so outgoing bot messages can still
     // show the correct client name in the chat modal header.
@@ -2562,21 +2601,21 @@ app.get('/api/messages/conversation/:phoneNumber', async (req, res) => {
   try {
     const { phoneNumber } = req.params;
 
-    // Incoming messages: customer sent them (from = phoneNumber)
-    const incomingMessages = await Message.findAll({
-      where: { from: phoneNumber },
-      order: [['timestamp', 'ASC']]
+    // Single query for the whole thread (incoming: from = phoneNumber,
+    // outgoing/bot reply: to = phoneNumber). Sort by timestamp first, then by
+    // id as a tie-breaker — WhatsApp timestamps only have second precision,
+    // so a customer message and an immediate bot reply can land in the same
+    // second; without the id tie-breaker their order was arbitrary (whichever
+    // query happened to list it first), which showed replies out of sequence.
+    const allMessages = await Message.findAll({
+      where: {
+        [Op.or]: [
+          { from: phoneNumber },
+          { to: phoneNumber }
+        ]
+      },
+      order: [['timestamp', 'ASC'], ['id', 'ASC']]
     });
-
-    // Outgoing messages: bot sent them (to = phoneNumber)
-    const outgoingMessages = await Message.findAll({
-      where: { to: phoneNumber },
-      order: [['timestamp', 'ASC']]
-    });
-
-    // Merge and sort by timestamp (oldest first)
-    const allMessages = [...incomingMessages, ...outgoingMessages];
-    allMessages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
     // Format — isBot = true when WE sent it (to = phoneNumber)
     const formattedMessages = allMessages.map(msg => ({

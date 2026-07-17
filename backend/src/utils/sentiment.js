@@ -1,4 +1,5 @@
 const Sentiment = require('sentiment');
+const { matchDictionaryTermsInText } = require('./keywordDictionary');
 const sentiment = new Sentiment();
 
 const ROMAN_URDU_LABELS = {
@@ -32,29 +33,29 @@ const getAllSentimentLabels = () => {
 };
 
 /**
- * Extract top sentiment keywords from analysis
- * @param {Array} tokens - All tokens from sentiment analysis
- * @param {Object} sentimentLabels - Sentiment labels configuration
- * @returns {Array} Top keywords with sentiment scores
+ * Extract top keywords from a message using the curated business dictionary.
+ * This surfaces meaningful topics (price, order, issue, refund, meeting, …) and
+ * ignores noise/filler words, staying consistent with the aggregate keywords card.
+ * @param {string} text - The raw message text
+ * @returns {Array} Top keywords with sentiment and occurrence score
  */
-const extractTopKeywords = (tokens, sentimentLabels) => {
-  const keywordMap = {};
+const extractTopKeywords = (text = '') => {
+  const matches = matchDictionaryTermsInText(text);
+  if (!matches.length) return [];
 
-  tokens.forEach(token => {
-    if (sentimentLabels[token]) {
-      keywordMap[token] = sentimentLabels[token];
+  // Merge variants of the same canonical keyword (e.g. "problem" -> "issue").
+  const byKeyword = {};
+  matches.forEach(m => {
+    if (!byKeyword[m.keyword]) {
+      byKeyword[m.keyword] = { keyword: m.keyword, sentiment: m.sentiment, score: 0 };
     }
+    byKeyword[m.keyword].score += m.count;
   });
 
-  // Return top 5 keywords sorted by absolute sentiment value
-  return Object.entries(keywordMap)
-    .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
-    .slice(0, 5)
-    .map(([keyword, score]) => ({
-      keyword,
-      sentiment: score > 0 ? 'positive' : 'negative',
-      score: Math.abs(score)
-    }));
+  // Return the top 5 keywords, most frequent first.
+  return Object.values(byKeyword)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5);
 };
 
 /**
@@ -81,8 +82,8 @@ const analyzeSentiment = (text) => {
     label = 'negative';
   }
 
-  // Extract top keywords with professional formatting
-  const topKeywords = extractTopKeywords(result.tokens, ROMAN_URDU_LABELS);
+  // Extract meaningful business keywords from the curated dictionary
+  const topKeywords = extractTopKeywords(text);
   
   return {
     score: result.score,

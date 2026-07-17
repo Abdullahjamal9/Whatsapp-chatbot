@@ -13,23 +13,41 @@ const isValidTaskDescription = (description = '') => {
 /**
  * Save message to database with sentiment analysis
  */
-const saveMessage = async (msg, recipientNumber = null) => {
+const saveMessage = async (msg, recipientNumber = null, contactHint = null) => {
   try {
-    const contact = await msg.getContact();
+    // IMPORTANT: don't call msg.getContact() here. For @lid (privacy-id)
+    // contacts it can take up to ~2 minutes to resolve, and since this runs
+    // before the DB insert, that delay pushed the message's saved timestamp
+    // (and therefore the bot's whole reply pipeline) minutes behind the
+    // actual WhatsApp send time — causing multiple customer messages to pile
+    // up before the bot replied to the first one. msg._data.notifyName is
+    // already attached to the message with no extra round-trip.
+    const pushName = contactHint?.pushname || contactHint?.name || msg._data?.notifyName || '';
     const from = msg.from;
     const body = msg.body;
-    
+
     // For outgoing messages (fromMe = true), 'to' should be the recipient
     // For incoming messages, 'to' is null (or could be the bot's number)
     const to = msg.fromMe ? recipientNumber : null;
-    
+
     // Analyze sentiment
     const sentimentResult = analyzeSentiment(body);
-    
+
     // Check if it's a command
     const isCommand = body.startsWith('!');
-    
+
     const serializedMessageId = msg?.id?._serialized || msg?.id?.id || String(msg?.id || `${from}-${msg.timestamp}`);
+
+    // For our OWN outgoing messages, WhatsApp's reported msg.timestamp is
+    // accurate (verified: it matches our save time within ~1s). But for
+    // INCOMING messages the value WhatsApp reports can be far in the past —
+    // observed ~130s behind real send time for some contacts — even though
+    // the message actually arrived and was replied to promptly. Trusting that
+    // bad timestamp made every incoming message sort as if it happened ~2
+    // minutes before it really did, so a burst of quick back-and-forth turns
+    // showed up as all-questions-then-all-answers instead of interleaved.
+    // Our own receipt time is what we can actually vouch for, so use it here.
+    const messageTimestamp = msg.fromMe ? new Date(msg.timestamp * 1000) : new Date();
 
     // Save message (findOrCreate prevents duplicate errors on bot restart)
     const [message, created] = await Message.findOrCreate({
@@ -38,7 +56,7 @@ const saveMessage = async (msg, recipientNumber = null) => {
         messageId: serializedMessageId,
         from: from,
         to: to,
-        fromName: contact.pushname || contact.name || from,
+        fromName: pushName || from,
         body: body,
         sentimentScore: sentimentResult.score,
         sentimentComparative: sentimentResult.comparative,
@@ -46,16 +64,16 @@ const saveMessage = async (msg, recipientNumber = null) => {
         sentimentTokens: sentimentResult.tokens,
         topKeywords: sentimentResult.topKeywords,
         isCommand: isCommand,
-        timestamp: new Date(msg.timestamp * 1000)
+        timestamp: messageTimestamp
       }
     });
     if (!created) {
       return { message, created: false };
     }
-    
+
     // Update conversation
-    await updateConversation(from, contact.pushname || contact.name, sentimentResult);
-    
+    await updateConversation(from, pushName, sentimentResult);
+
     return { message, created: true };
   } catch (error) {
     console.error('Error saving message:', error);

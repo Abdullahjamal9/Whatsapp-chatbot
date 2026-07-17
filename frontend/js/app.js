@@ -288,9 +288,7 @@ async function showKeywordMessages(keyword) {
         </div>
       `;
       document.body.appendChild(modal);
-      modal.addEventListener('click', (e) => {
-        if (e.target === modal) modal.style.display = 'none';
-      });
+      // Outside click intentionally does NOT close the modal — use the × button.
     }
 
     // Update modal title and content
@@ -510,13 +508,7 @@ function clearChatSearch() {
   _searchIndex   = -1;
 }
 
-// Close modal on outside click
-document.addEventListener('click', (e) => {
-  const modal = document.getElementById('chatModal');
-  if (e.target === modal) {
-    closeChatModal();
-  }
-});
+// Outside click intentionally does NOT close the chat modal — use the × button.
 
 // Close modal on ESC key
 document.addEventListener('keydown', (e) => {
@@ -2440,6 +2432,10 @@ async function loadMessages(filters = {}) {
     if (activeFilters.from)      params.append('from',      activeFilters.from);
     if (activeFilters.startDate) params.append('startDate', activeFilters.startDate);
     if (activeFilters.endDate)   params.append('endDate',   activeFilters.endDate);
+    // Messages page shows one card per contact (their latest message) instead
+    // of a separate card per message — the full history is one click away via
+    // the chat modal. The dashboard's recent-activity widget stays a flat feed.
+    if (currentPage === 'messages') params.append('grouped', 'true');
 
     const response = await fetch(`/api/messages?${params}`);
     const data = await response.json();
@@ -2983,10 +2979,7 @@ function closeCameraModal() {
   capturedPhotoBlob = null;
 }
 
-// Close camera modal on overlay click
-document.getElementById('cameraModalOverlay')?.addEventListener('click', (e) => {
-  if (e.target === document.getElementById('cameraModalOverlay')) closeCameraModal();
-});
+// Outside click intentionally does NOT close the camera modal — use the Cancel/× button.
 
 // Close emoji picker and attachment menu on outside click
 document.addEventListener('click', (e) => {
@@ -3839,7 +3832,17 @@ function switchSettingsTab(tabName) {
 
 let waStatusInterval = null;
 
+// Keep a single 5s poll alive while the WhatsApp tab is open, in EVERY state.
+// This is what lets the QR reappear automatically when the phone unlinks the
+// device — without it, the UI stays on "Connected" until a manual reload.
+function ensureWAPolling() {
+  if (!waStatusInterval) {
+    waStatusInterval = setInterval(checkWAStatus, 5000);
+  }
+}
+
 async function checkWAStatus() {
+  ensureWAPolling();
   try {
     const res = await fetch('/api/bot/status');
     const data = await res.json();
@@ -3859,13 +3862,14 @@ function updateWAStatusUI(data) {
 
   if (!dot) return;
 
+  // Polling stays alive across every state (see ensureWAPolling) so a phone-side
+  // disconnect flips the UI back to the QR automatically.
   if (data.status === 'connected') {
     dot.style.background = '#25D366';
     text.textContent = 'WhatsApp Connected';
     sub.textContent = 'Bot is active and ready';
     qrSection.style.display = 'none';
     connectedSection.style.display = 'block';
-    if (waStatusInterval) { clearInterval(waStatusInterval); waStatusInterval = null; }
 
   } else if (data.status === 'qr') {
     dot.style.background = '#f59e0b';
@@ -3876,13 +3880,6 @@ function updateWAStatusUI(data) {
     qrImg.onerror = () => { qrImg.src = '/api/bot/qr.png?t=' + Date.now(); };
     qrSection.style.display = 'block';
     connectedSection.style.display = 'none';
-    // Auto-refresh the image and status every 5s
-    if (!waStatusInterval) {
-      waStatusInterval = setInterval(() => {
-        qrImg.src = '/api/bot/qr.png?t=' + Date.now();
-        checkWAStatus();
-      }, 5000);
-    }
 
   } else if (data.status === 'qr_expired') {
     dot.style.background = '#ef4444';
@@ -3891,7 +3888,6 @@ function updateWAStatusUI(data) {
     qrSection.style.display = 'block';
     qrImg.src = '';
     connectedSection.style.display = 'none';
-    if (waStatusInterval) { clearInterval(waStatusInterval); waStatusInterval = null; }
 
   } else {
     dot.style.background = '#6b7280';
@@ -3899,7 +3895,6 @@ function updateWAStatusUI(data) {
     sub.textContent = 'Start the bot with: npm run bot — then click Refresh';
     qrSection.style.display = 'none';
     connectedSection.style.display = 'none';
-    if (waStatusInterval) { clearInterval(waStatusInterval); waStatusInterval = null; }
   }
 }
 
@@ -3942,11 +3937,8 @@ async function disconnectWhatsApp() {
           const statusRes = await fetch('/api/bot/status').then(r => r.json());
           if (statusRes.status === 'qr' || statusRes.status === 'disconnected' || statusRes.status === 'qr_expired') {
             clearInterval(pollDisconnect);
-            updateWAStatusUI(statusRes);
-            if (statusRes.status === 'qr') {
-              const qrImg = document.getElementById('waQRImage');
-              if (qrImg) qrImg.src = '/api/bot/qr.png?t=' + Date.now();
-            }
+            // Resume the normal 5s poll so a later scan → connected also updates the UI.
+            checkWAStatus();
           }
         } catch(e) {}
         if (polls >= 20) clearInterval(pollDisconnect); // give up after 30 s

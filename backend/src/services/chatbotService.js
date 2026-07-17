@@ -143,6 +143,31 @@ class ChatbotService {
     this.officeLookupTtlMs = 15 * 60 * 1000;
     this.lastReplyByPhone = new Map();
     this.repeatReplyWindowMs = 90 * 1000;
+
+    // Rolling per-phone transcript (user + assistant turns) so the AI can see
+    // its own previous replies and stop repeating itself mid-conversation.
+    this.conversationTurns = new Map();
+    this.maxConversationTurns = 8;
+  }
+
+  /**
+   * Get the remembered conversation turns (user + assistant) for a phone.
+   */
+  getConversationTurns(from) {
+    if (!from) return [];
+    return this.conversationTurns.get(from) || [];
+  }
+
+  /**
+   * Append a turn to the rolling transcript, keeping only the most recent ones.
+   */
+  recordConversationTurn(from, role, content) {
+    const text = String(content || '').trim();
+    if (!from || !text) return;
+    const turns = this.conversationTurns.get(from) || [];
+    turns.push({ role, content: text });
+    while (turns.length > this.maxConversationTurns) turns.shift();
+    this.conversationTurns.set(from, turns);
   }
 
   /**
@@ -510,21 +535,30 @@ class ChatbotService {
       // Always reload business profile from file so dashboard updates take effect immediately
       this.systemPrompt = this.loadSystemPrompt();
 
-      // Build messages array with conversation history
-      const messages = [{ role: 'system', content: this.systemPrompt }];
-
-      if (conversationHistory.length > 0) {
+      // Build messages array with conversation history.
+      // Use the in-memory transcript so the AI can see its OWN previous replies
+      // (role: 'assistant') and stop repeating itself. On a cold start the
+      // transcript is empty, so seed it from the DB history (user turns only).
+      let priorTurns = this.getConversationTurns(from);
+      if (priorTurns.length === 0 && conversationHistory.length > 0) {
         conversationHistory.slice().reverse().forEach(m => {
-          messages.push({ role: 'user', content: m.body });
+          this.recordConversationTurn(from, 'user', m.body);
         });
+        priorTurns = this.getConversationTurns(from);
       }
 
+      const messages = [{ role: 'system', content: this.systemPrompt }];
+      priorTurns.forEach(t => messages.push({ role: t.role, content: t.content }));
+
       // Only introduce the name on the very first message — don't repeat it in ongoing chats
-      const isFirstMessage = conversationHistory.length === 0;
+      const isFirstMessage = priorTurns.length === 0;
       messages.push({
         role: 'user',
         content: isFirstMessage ? `Customer name: ${fromName}\n\n${messageBody}` : messageBody
       });
+
+      // Record the incoming customer message before generating the reply.
+      this.recordConversationTurn(from, 'user', messageBody);
 
       const completion = await this.groq.chat.completions.create({
         model: this.currentModel,
@@ -534,6 +568,9 @@ class ChatbotService {
       });
 
       const aiResponse = completion.choices[0].message.content.trim();
+
+      // Remember our own reply so the next turn has full context.
+      this.recordConversationTurn(from, 'assistant', aiResponse);
       console.log(`🤖 Groq (${this.currentModel}) replied: ${aiResponse.substring(0, 80)}...`);
 
       const intent = this.detectIntent(messageBody);

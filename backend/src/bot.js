@@ -13,6 +13,7 @@ const WhatsAppState = require('./utils/whatsappState');
 const onboardingService = require('./services/onboardingService');
 const emailService      = require('./services/emailService');
 const meetingService    = require('./services/meetingService');
+const lidPhoneMap       = require('./utils/lidPhoneMap');
 
 // Connect to database
 connectDB();
@@ -48,7 +49,18 @@ function resolveOnboardingLookupPhone(msgFrom, contact) {
 
   const rawNumber = contact?.number || contact?.id?.user || '';
   const digits = String(rawNumber || '').replace(/\D/g, '');
-  return digits ? `+${digits}` : from;
+  const resolved = digits ? `+${digits}` : '';
+
+  if (resolved) {
+    // Remember this @lid -> phone resolution so future sessions still match
+    // the same client even if contact.number stops resolving later.
+    lidPhoneMap.rememberLid(from, resolved);
+    return resolved;
+  }
+
+  // contact.number didn't resolve this time — fall back to a previously
+  // remembered mapping instead of treating the client as brand-new.
+  return lidPhoneMap.getPhoneForLid(from) || from;
 }
 
 // Create WhatsApp client with QR authentication
@@ -61,6 +73,18 @@ const client = new Client({
 });
 
 console.log('🚀 Starting WhatsApp Bot...\n');
+
+// ── Connection health tracking ───────────────────────────────────────────────
+// Phone-side unlinks don't always emit the 'disconnected' event, so we also
+// poll client.getState() below and regenerate the QR when the session drops.
+let hasBeenReady        = false; // becomes true after the first successful pairing
+let reinitInProgress    = false; // guard so overlapping reinitializations can't stack
+let unpairedStrikes     = 0;     // consecutive non-CONNECTED readings before we act
+let lastMessageActivityAt = 0;   // last time we started handling a message — the
+                                  // health check backs off while a message is being
+                                  // processed so it can't yank the browser out from
+                                  // under an in-flight reply (this happened once and
+                                  // silently swallowed a customer's message)
 
 // Wipe the LocalAuth session folder so initialize() always starts clean.
 // Without this, a stale/revoked session causes QR scans to fail silently.
@@ -105,29 +129,41 @@ function forceKillChrome() {
 // If destroy() hangs (common when the browser is already in a bad state),
 // we force-kill Chrome and move on so initialize() can start fresh.
 async function safeReinitialize() {
+  if (reinitInProgress) {
+    console.log('⏳ safeReinitialize already in progress — skipping duplicate call');
+    return;
+  }
+  reinitInProgress = true;
+  // A reinit means the old session is gone; require a fresh 'ready' before the
+  // health watcher starts guarding again.
+  hasBeenReady = false;
+  unpairedStrikes = 0;
+
   console.log('🔄 safeReinitialize: destroying old browser...');
 
-  // Race destroy() against a 5 s timeout
-  await Promise.race([
-    client.destroy().catch(() => {}),
-    new Promise(resolve => setTimeout(resolve, 5000))
-  ]);
-
-  // Extra safety: force-kill any leftover Chrome process
-  forceKillChrome();
-
-  // Give the OS a moment to release ports/files
-  await new Promise(resolve => setTimeout(resolve, 1500));
-
-  // Wipe stale session so the QR scan is always clean
-  wipeSession();
-
-  // Start fresh
-  console.log('🔄 safeReinitialize: starting fresh initialize...');
   try {
+    // Race destroy() against a 5 s timeout
+    await Promise.race([
+      client.destroy().catch(() => {}),
+      new Promise(resolve => setTimeout(resolve, 5000))
+    ]);
+
+    // Extra safety: force-kill any leftover Chrome process
+    forceKillChrome();
+
+    // Give the OS a moment to release ports/files
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
+    // Wipe stale session so the QR scan is always clean
+    wipeSession();
+
+    // Start fresh
+    console.log('🔄 safeReinitialize: starting fresh initialize...');
     await client.initialize();
   } catch (err) {
     console.error('❌ safeReinitialize: initialize failed:', err.message);
+  } finally {
+    reinitInProgress = false;
   }
 }
 
@@ -183,6 +219,8 @@ client.on('ready', () => {
     );
   } catch(e) {}
   WhatsAppState.setReady(true);
+  hasBeenReady = true;   // arm the connection health watcher
+  unpairedStrikes = 0;
   console.log('✅ WhatsApp client ready - Message sending enabled!\n');
 });
 
@@ -210,8 +248,58 @@ client.on('disconnected', (reason) => {
   setTimeout(() => safeReinitialize(), 3000);
 });
 
-// Handle incoming messages
-client.on('message', async (msg) => {
+// ── Connection health watcher ────────────────────────────────────────────────
+// The 'disconnected' event does NOT reliably fire when the user unlinks the
+// device from their phone. So once the bot has been paired, we poll the session
+// state; if it stops being CONNECTED, we mark it disconnected and regenerate the
+// QR automatically — no need to press "Disconnect" on the dashboard first.
+const HEALTH_CHECK_INTERVAL_MS = 20000;
+const HEALTH_CHECK_STRIKES_REQUIRED = 3;   // ~60s of confirmed bad state before acting
+const HEALTH_CHECK_ACTIVITY_COOLDOWN_MS = 20000; // skip the check while a message is in flight
+
+setInterval(async () => {
+  if (reinitInProgress || !hasBeenReady) return; // idle before first pairing / during reinit
+
+  // Don't contend with an in-flight message: getState() shares the same
+  // Puppeteer page, and a reinit triggered mid-reply silently drops that reply.
+  if (Date.now() - lastMessageActivityAt < HEALTH_CHECK_ACTIVITY_COOLDOWN_MS) return;
+
+  let state = null;
+  let threw = false;
+  try {
+    state = await client.getState();
+  } catch (_) {
+    threw = true; // getState() failing could just mean it's busy, not disconnected
+  }
+
+  if (state === 'CONNECTED') {
+    unpairedStrikes = 0;
+    return;
+  }
+
+  // A thrown error is inconclusive on its own — only count it if it keeps
+  // happening across multiple checks (handled by the normal strike counter),
+  // but don't log a scary "disconnect detected" state for a transient throw.
+  unpairedStrikes += 1;
+  console.log(`⚠️ Health check: WhatsApp state is "${threw ? 'unknown (getState failed)' : state}" (strike ${unpairedStrikes}/${HEALTH_CHECK_STRIKES_REQUIRED})`);
+
+  if (unpairedStrikes >= HEALTH_CHECK_STRIKES_REQUIRED) {
+    console.log('🔌 Phone-side disconnect detected — regenerating QR automatically...');
+    try {
+      fs.writeFileSync(
+        path.join(__dirname, '../.bot-state.json'),
+        JSON.stringify({ status: 'disconnected', qr: null, timestamp: Date.now() })
+      );
+    } catch (_) {}
+    safeReinitialize(); // resets hasBeenReady + strikes internally
+  }
+}, HEALTH_CHECK_INTERVAL_MS);
+
+// Handle incoming messages. Extracted into a named function (rather than an
+// inline listener) so the polling fallback below can reuse the exact same
+// logic for messages whose 'message' event never fired live.
+async function handleIncomingMessage(msg) {
+  lastMessageActivityAt = Date.now();
   try {
     // Ignore groups, status updates, newsletters and broadcasts
     if (
@@ -226,7 +314,8 @@ client.on('message', async (msg) => {
     
     console.log(`📨 Message from ${msg.from}: ${msg.body}`);
     
-    // Save message with sentiment analysis
+    // Save message with sentiment analysis (no getContact() call here — see
+    // messageService.saveMessage for why that matters)
     const { message: savedMsg, created: isNewIncoming } = await messageService.saveMessage(msg);
 
     if (!savedMsg) {
@@ -253,8 +342,19 @@ client.on('message', async (msg) => {
     }
 
     // ── Get real contact name / lookup phone ───────────────────────────────
-    const msgContact = await msg.getContact();
-    const fromName = msgContact.pushname || msgContact.name || msg._data?.notifyName || 'there';
+    // Avoid msg.getContact() whenever possible — for @lid (privacy-id) chats it
+    // can take up to ~2 minutes to resolve, which was delaying the ENTIRE reply
+    // pipeline by that much and causing multiple customer messages to pile up
+    // before the bot replied to the first one. notifyName covers the common
+    // case with no round-trip; getContact() only runs the first time we see a
+    // given @lid (after that, lidPhoneMap has it cached).
+    const isLidChat = msg.from.endsWith('@lid');
+    const cachedLidPhone = isLidChat ? lidPhoneMap.getPhoneForLid(msg.from) : null;
+    let msgContact = null;
+    if (isLidChat && !cachedLidPhone) {
+      msgContact = await msg.getContact();
+    }
+    const fromName = msgContact?.pushname || msgContact?.name || msg._data?.notifyName || 'there';
     const lookupPhone = resolveOnboardingLookupPhone(msg.from, msgContact);
 
     // ── Onboarding: collect name / designation / phone / email ───────────────
@@ -272,14 +372,20 @@ client.on('message', async (msg) => {
       await processCommand(msg, client, messageService);
       return;
     }
-    
+
     // ── Reset 30-min inactivity timer (send email after silence) ─────────────
     resetInactivityTimer(msg.from);
+
+    // Use the name the client actually gave us during onboarding (not their
+    // WhatsApp display name, which is often different) so the bot addresses
+    // them consistently instead of flip-flopping between two names.
+    const savedProfile = await onboardingService.getProfile(lookupPhone);
+    const displayName = (savedProfile?.name || '').trim() || fromName;
 
     // ── Meeting confirmation workflow (availability + booking + Zoom link) ──
     const meetingFlow = await meetingService.maybeHandleMeetingMessage({
       phoneNumber: lookupPhone,
-      fromName,
+      fromName: displayName,
       messageBody: msg.body,
       messageId: savedMsg.messageId
     });
@@ -298,7 +404,7 @@ client.on('message', async (msg) => {
     const chatResponse = await chatbotService.generateResponse(
       msg.body,
       msg.from,
-      fromName,
+      displayName,
       { lookupPhone }
     );
     
@@ -340,7 +446,9 @@ client.on('message', async (msg) => {
   } catch (error) {
     console.error('Error handling message:', error.message?.substring(0, 150));
   }
-});
+}
+
+client.on('message', handleIncomingMessage);
 
 // Handle message creation (outgoing messages)
 client.on('message_create', async (msg) => {
@@ -512,6 +620,7 @@ const botBridge = http.createServer(async (req, res) => {
   let body = '';
   req.on('data', chunk => body += chunk);
   req.on('end', async () => {
+    lastMessageActivityAt = Date.now(); // dashboard-triggered sends also use Puppeteer
     try {
       const { phoneNumber, message, mediaData, mimeType, fileName } = JSON.parse(body);
       if (!phoneNumber || (!message && !mediaData)) {
