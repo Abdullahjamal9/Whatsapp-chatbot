@@ -7,7 +7,7 @@ const path = require('path');
 
 const BOT_BEHAVIOR_DEFAULTS = {
   enableAutoReply: true,
-  welcomeMessage: 'Welcome to PTIS Chatbot! 👋 How can we help you today?',
+  welcomeMessage: 'Greetings from PTIS Chatbot! 👋 How can we help you today?',
   awayMessage: 'We\'re currently offline. Our team will respond during business hours (9 AM - 6 PM).',
   responseDelaySeconds: 2
 };
@@ -58,7 +58,7 @@ class ChatbotService {
     // Response templates
     this.responses = {
       greeting: [
-        "Hello! 👋 Welcome to our service. How can I assist you today?",
+        "Hello! 👋 Greetings from our service. How can I assist you today?",
         "Hi there! 😊 Thank you for reaching out. How may I help you?",
         "Good day! I'm here to help. What can I do for you today?"
       ],
@@ -197,7 +197,13 @@ class ChatbotService {
   }
 
   matchesKeywords(message, keywords = []) {
-    return keywords.some(keyword => message.includes(keyword));
+    // Word-boundary match, not plain substring — otherwise short keywords like
+    // "hi" or "ok" false-positive inside unrelated words ("hire", "book"),
+    // e.g. "Can you hire me?" was being misread as a greeting.
+    return keywords.some(keyword => {
+      const escaped = String(keyword).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      return new RegExp(`\\b${escaped}\\b`, 'i').test(message);
+    });
   }
 
   isShortMessage(message, maxWords = 8) {

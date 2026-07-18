@@ -112,7 +112,7 @@ const GENERAL_SETTINGS_DEFAULTS = {
 
 const BOT_BEHAVIOR_DEFAULTS = {
   enableAutoReply: true,
-  welcomeMessage: 'Welcome to PTIS Chatbot! 👋 How can we help you today?',
+  welcomeMessage: 'Greetings from PTIS Chatbot! 👋 How can we help you today?',
   awayMessage: 'We\'re currently offline. Our team will respond during business hours (9 AM - 6 PM).',
   responseDelaySeconds: 2
 };

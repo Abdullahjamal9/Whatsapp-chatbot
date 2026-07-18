@@ -26,7 +26,7 @@ const FIELD_BY_STATE = {
 
 const QUESTIONS = {
   asking_name:
-    '👋 *Welcome!* Before we get started, I\'d like to note down a few details.\n\nWhat is your *full name*?',
+    '👋 *Greetings!* Before we get started, I\'d like to note down a few details.\n\nWhat is your *full name*?',
   asking_designation:
     'Nice to meet you, *{name}*! 😊\n\nWhat is your *designation* or job title?',
   asking_phone:
@@ -190,6 +190,18 @@ function normalizePhone(text = '') {
   const raw = String(text || '').trim();
   const cleaned = raw.replace(/[^\d+]/g, '');
   return cleaned;
+}
+
+// The bot is already chatting with this client over WhatsApp, so their phone
+// number is available from the chat itself — no need to ask for it.
+// `rawPhone` is the resolved WhatsApp identifier (e.g. "+923001234567" or
+// "923001234567@c.us"); this extracts a clean "+<digits>" phone number from it.
+function extractPhoneDigits(rawPhone = '') {
+  const raw = String(rawPhone || '').trim();
+  if (!raw) return '';
+  const base = raw.split('@')[0];
+  const digits = base.replace(/\D/g, '');
+  return digits ? `+${digits}` : '';
 }
 
 function buildPhoneLookupVariants(phoneNumber = '') {
@@ -378,17 +390,25 @@ async function processOnboarding(phoneNumber, messageText) {
 
   const profile = getWorkingProfile(phoneNumber, dbProfile);
 
-  const hasAllCoreFields = Boolean(profile.name && profile.designation && profile.contactPhone);
-  if (hasAllCoreFields) {
-    profile.onboardingComplete = true;
-    await persistCompletedProfile(phoneNumber, profile);
-    pendingProfiles.delete(phoneNumber);
-    states.delete(phoneNumber);
-    return null;
+  // Auto-fill the phone number from the WhatsApp chat itself — the bot is
+  // already talking to this number, so there's no need to ask for it.
+  if (!profile.contactPhone) {
+    const autoPhone = extractPhoneDigits(phoneNumber);
+    if (autoPhone) {
+      profile.contactPhone = autoPhone;
+      pendingProfiles.set(phoneNumber, profile);
+    }
   }
 
+  // NOTE: there used to be an early "name + designation + phone ⇒ complete"
+  // shortcut here, but it fired BEFORE the email step ever ran — since phone
+  // is auto-filled above, that condition became true right after designation,
+  // silently swallowing the client's email answer on the very next message.
+  // The "restore state" logic below already does this correctly (it also
+  // requires email), so completion is decided there instead.
+
   // ── Brand new or not-started user: ask first question (no DB write yet) ─
-  if (!profile.name && !profile.designation && !profile.contactPhone && !profile.email && !states.get(phoneNumber)) {
+  if (!profile.name && !profile.designation && !profile.email && !states.get(phoneNumber)) {
     states.set(phoneNumber, 'asking_name');
     return { response: QUESTIONS.asking_name, done: false };
   }
@@ -555,10 +575,15 @@ async function processOnboarding(phoneNumber, messageText) {
       }
       profile.designation = aiCandidate.trim();
       pendingProfiles.set(phoneNumber, profile);
-      states.set(phoneNumber, 'asking_phone');
-      return { response: QUESTIONS.asking_phone, done: false };
+      // Phone number is already known from the WhatsApp chat itself — skip
+      // straight to email.
+      states.set(phoneNumber, 'asking_email');
+      return { response: QUESTIONS.asking_email, done: false };
     }
 
+    // Not part of the normal flow anymore (phone is auto-filled from the
+    // WhatsApp chat), but kept reachable so a client can still correct their
+    // number if they explicitly ask to (see detectRequestedField/aiRequestedState).
     case 'asking_phone': {
       if (isGreeting(answer)) return { response: greetAndAsk(QUESTIONS.asking_phone), done: false };
       if (!answer) return { response: 'Please enter your phone number 🙏', done: false };
