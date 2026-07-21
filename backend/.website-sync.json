@@ -4,10 +4,10 @@
   "intervalMinutes": 360,
   "maxPages": 30,
   "maxChars": 8000,
-  "lastSyncAt": "2026-07-18T06:41:55.082Z",
+  "lastSyncAt": "2026-07-20T11:41:39.186Z",
   "lastPageCount": 23,
-  "lastError": null,
-  "lastErrorAt": null,
+  "lastError": "No readable text found on the website",
+  "lastErrorAt": "2026-07-21T04:47:59.600Z",
   "lastContentHash": "79dd55cdc4e3502c1bec1f31609a7d16f8420dc47386c69a9a718013d3e3410f",
-  "updatedAt": "2026-07-18T06:41:55.085Z"
+  "updatedAt": "2026-07-21T04:47:59.602Z"
 }
